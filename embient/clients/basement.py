@@ -1,0 +1,565 @@
+"""Basement API client for Embient CLI.
+
+Manages interactions with the Basement API for:
+- Trading signals (CRUD)
+- User profile and risk settings
+- Market data (candles, indicators)
+- Memories and skills
+
+Usage:
+    from embient.clients import basement_client
+    from embient.auth import get_jwt_token
+
+    token = get_jwt_token()
+    signals = await basement_client.get_trading_signals(token)
+"""
+
+import logging
+from typing import Optional
+
+import httpx
+
+logger = logging.getLogger(__name__)
+
+# Static Basement API URL
+BASEMENT_API_URL = "https://basement.embient.ai"
+
+
+class BasementClient:
+    """Client for the Basement API."""
+
+    def __init__(self, base_url: str = BASEMENT_API_URL, timeout: float = 30.0):
+        """Initialize the Basement client.
+
+        Args:
+            base_url: Base URL for the Basement API
+            timeout: Request timeout in seconds
+        """
+        self.base_url = base_url.rstrip("/")
+        self.timeout = timeout
+
+    def _headers(self, token: str) -> dict:
+        """Build request headers with authentication."""
+        return {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+
+    # =========================================================================
+    # Trading Signals
+    # =========================================================================
+
+    async def get_trading_signals(
+        self,
+        token: str,
+        status: Optional[str] = None,
+        ticker: Optional[str] = None,
+        page: int = 1,
+        limit: int = 10,
+    ) -> Optional[list[dict]]:
+        """Retrieve trading signals for the authenticated user.
+
+        Args:
+            token: JWT authentication token
+            status: Filter by status (active, expired, executed, cancelled)
+            ticker: Filter by ticker symbol
+            page: Page number for pagination
+            limit: Number of items per page
+
+        Returns:
+            List of trading signal dictionaries or None on failure
+        """
+        try:
+            params = {"page": page, "limit": limit}
+            if status:
+                params["status"] = status
+            if ticker:
+                params["ticker"] = ticker
+
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v1/trading-signals",
+                    params=params,
+                    headers=self._headers(token),
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    result = data.get("response", {})
+                    # Handle both list and dict response formats
+                    if isinstance(result, list):
+                        return result
+                    elif isinstance(result, dict):
+                        return result.get("signals", [])
+                    return None
+                else:
+                    logger.error(
+                        f"Failed to get trading signals: {response.status_code} - {response.text}"
+                    )
+                    return None
+
+        except httpx.TimeoutException:
+            logger.error("Timeout while fetching trading signals")
+            return None
+        except Exception as e:
+            logger.error(f"Error fetching trading signals: {e}")
+            return None
+
+    async def create_trading_signal(
+        self,
+        token: str,
+        symbol: str,
+        position: str,
+        entry_conditions: str,
+        suggestion_price: float,
+        stop_loss: float,
+        confidence_score: float,
+        rationale: str,
+        invalid_condition: str,
+        take_profit_levels: Optional[list[float]] = None,
+        entry_price: Optional[float] = None,
+        quantity: Optional[float] = None,
+        leverage: Optional[float] = None,
+        capital_allocated: Optional[float] = None,
+        entry_plan_images: Optional[list[str]] = None,
+        invalid_condition_images: Optional[list[str]] = None,
+        monitoring_enabled: Optional[bool] = None,
+        monitoring_interval_minutes: Optional[int] = None,
+        thread_id: Optional[str] = None,
+        expires_at: Optional[str] = None,
+        auto_execute: Optional[bool] = None,
+    ) -> Optional[dict]:
+        """Create a new trading signal.
+
+        Args:
+            token: JWT authentication token
+            symbol: Ticker symbol (e.g., "BTC/USDT")
+            position: Either "BUY" or "SELL"
+            entry_conditions: Description of entry conditions
+            suggestion_price: AI's suggested entry price
+            stop_loss: Stop loss price level
+            confidence_score: Confidence 0-100
+            rationale: Reasoning behind the signal
+            invalid_condition: Conditions that would invalidate the signal
+            take_profit_levels: Target profit levels
+            entry_price: Actual entry price (when executed)
+            quantity: Suggested number of units
+            leverage: Leverage multiplier (1.0-125.0)
+            capital_allocated: Capital/margin allocated
+            entry_plan_images: Chart analysis image URLs
+            invalid_condition_images: Invalidation image URLs
+            monitoring_enabled: Enable AI monitoring
+            monitoring_interval_minutes: Monitoring frequency
+            thread_id: Conversation thread ID
+            expires_at: ISO 8601 expiry datetime
+            auto_execute: Auto-execute flag
+
+        Returns:
+            Created trading signal dictionary or None on failure
+        """
+        try:
+            payload = {
+                "symbol": symbol,
+                "position": position,
+                "entry_conditions": entry_conditions,
+                "suggestion_price": suggestion_price,
+                "stop_loss": stop_loss,
+                "confidence_score": confidence_score,
+                "rationale": rationale,
+                "invalid_condition": invalid_condition,
+            }
+
+            # Optional fields
+            optional_fields = {
+                "take_profit_levels": take_profit_levels,
+                "entry_price": entry_price,
+                "quantity": quantity,
+                "leverage": leverage,
+                "capital_allocated": capital_allocated,
+                "entry_plan_images": entry_plan_images,
+                "invalid_condition_images": invalid_condition_images,
+                "monitoring_enabled": monitoring_enabled,
+                "monitoring_interval_minutes": monitoring_interval_minutes,
+                "thread_id": thread_id,
+                "expires_at": expires_at,
+                "auto_execute": auto_execute,
+            }
+            for key, value in optional_fields.items():
+                if value is not None:
+                    payload[key] = value
+
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(
+                    f"{self.base_url}/api/v1/trading-signals",
+                    json=payload,
+                    headers=self._headers(token),
+                )
+
+                if response.status_code == 201:
+                    data = response.json()
+                    logger.info(f"Created trading signal for {symbol}")
+                    return data.get("response")
+                else:
+                    logger.error(
+                        f"Failed to create signal: {response.status_code} - {response.text}"
+                    )
+                    return None
+
+        except httpx.TimeoutException:
+            logger.error("Timeout while creating trading signal")
+            return None
+        except Exception as e:
+            logger.error(f"Error creating trading signal: {e}")
+            return None
+
+    async def update_trading_signal(
+        self,
+        token: str,
+        signal_id: int,
+        status: Optional[str] = None,
+        entry_price: Optional[float] = None,
+        exit_price: Optional[float] = None,
+        profit_loss: Optional[float] = None,
+        executed_at: Optional[str] = None,
+        expires_at: Optional[str] = None,
+        reflection: Optional[str] = None,
+        current_price: Optional[float] = None,
+        filled_quantity: Optional[float] = None,
+        invalid_condition: Optional[str] = None,
+        invalid_condition_images: Optional[list[str]] = None,
+        stop_loss: Optional[float] = None,
+        take_profit_levels: Optional[list[float]] = None,
+        entry_conditions: Optional[str] = None,
+        rationale: Optional[str] = None,
+        entry_plan_images: Optional[list[str]] = None,
+    ) -> Optional[dict]:
+        """Update an existing trading signal.
+
+        Args:
+            token: JWT authentication token
+            signal_id: The trading signal ID to update
+            status: Status (active, expired, executed, cancelled)
+            entry_price: Actual entry price
+            exit_price: Actual exit price
+            profit_loss: Profit or loss amount
+            executed_at: ISO 8601 execution datetime
+            expires_at: ISO 8601 expiry datetime
+            reflection: Post-trade reflection notes
+            current_price: Current market price
+            filled_quantity: Filled quantity
+            invalid_condition: Invalidation conditions
+            invalid_condition_images: Invalidation image URLs
+            stop_loss: Stop loss price
+            take_profit_levels: Take profit levels
+            entry_conditions: Entry conditions
+            rationale: Technical reasoning
+            entry_plan_images: Entry plan image URLs
+
+        Returns:
+            Updated trading signal dictionary or None on failure
+        """
+        try:
+            payload = {}
+            fields = {
+                "status": status,
+                "entry_price": entry_price,
+                "exit_price": exit_price,
+                "profit_loss": profit_loss,
+                "executed_at": executed_at,
+                "expires_at": expires_at,
+                "reflection": reflection,
+                "current_price": current_price,
+                "filled_quantity": filled_quantity,
+                "invalid_condition": invalid_condition,
+                "invalid_condition_images": invalid_condition_images,
+                "stop_loss": stop_loss,
+                "take_profit_levels": take_profit_levels,
+                "entry_conditions": entry_conditions,
+                "rationale": rationale,
+                "entry_plan_images": entry_plan_images,
+            }
+            for key, value in fields.items():
+                if value is not None:
+                    payload[key] = value
+
+            if not payload:
+                logger.warning("No fields provided to update")
+                return None
+
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.patch(
+                    f"{self.base_url}/api/v1/trading-signals/{signal_id}",
+                    json=payload,
+                    headers=self._headers(token),
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    logger.info(f"Updated trading signal ID {signal_id}")
+                    return data.get("response")
+                else:
+                    logger.error(
+                        f"Failed to update signal: {response.status_code} - {response.text}"
+                    )
+                    return None
+
+        except httpx.TimeoutException:
+            logger.error("Timeout while updating trading signal")
+            return None
+        except Exception as e:
+            logger.error(f"Error updating trading signal: {e}")
+            return None
+
+    # =========================================================================
+    # User Profile
+    # =========================================================================
+
+    async def get_user_profile(self, token: str) -> Optional[dict]:
+        """Retrieve the current user's profile including risk settings.
+
+        Args:
+            token: JWT authentication token
+
+        Returns:
+            User profile dictionary with fields:
+            - account_balance: Total account balance
+            - available_balance: Available balance for trading
+            - margin_used: Currently used margin
+            - default_position_size: Default position size percentage
+            - max_leverage: Maximum allowed leverage
+            Or None on failure
+        """
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v1/profiles/me",
+                    headers=self._headers(token),
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get("response", {})
+                else:
+                    logger.error(
+                        f"Failed to fetch profile: {response.status_code} - {response.text}"
+                    )
+                    return None
+
+        except httpx.TimeoutException:
+            logger.error("Timeout while fetching user profile")
+            return None
+        except Exception as e:
+            logger.error(f"Error fetching user profile: {e}")
+            return None
+
+    # =========================================================================
+    # Market Data
+    # =========================================================================
+
+    async def get_candles(
+        self,
+        token: str,
+        symbol: str,
+        exchange: str = "binance",
+        interval: str = "4h",
+        limit: int = 100,
+    ) -> Optional[list[dict]]:
+        """Retrieve candlestick data for a symbol.
+
+        Args:
+            token: JWT authentication token
+            symbol: Trading pair (e.g., "BTC/USDT")
+            exchange: Exchange name (default: binance)
+            interval: Candle interval (e.g., 1m, 5m, 15m, 1h, 4h, 1d)
+            limit: Number of candles to fetch
+
+        Returns:
+            List of candle dictionaries with OHLCV data or None on failure
+        """
+        try:
+            params = {
+                "symbol": symbol,
+                "exchange": exchange,
+                "interval": interval,
+                "limit": limit,
+            }
+
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v1/market-data/candles",
+                    params=params,
+                    headers=self._headers(token),
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get("response", [])
+                else:
+                    logger.error(
+                        f"Failed to fetch candles: {response.status_code} - {response.text}"
+                    )
+                    return None
+
+        except httpx.TimeoutException:
+            logger.error("Timeout while fetching candles")
+            return None
+        except Exception as e:
+            logger.error(f"Error fetching candles: {e}")
+            return None
+
+    async def get_latest_candle(
+        self,
+        token: str,
+        symbol: str,
+        exchange: str = "binance",
+        interval: str = "5m",
+    ) -> Optional[dict]:
+        """Get the most recent candle for a symbol.
+
+        Args:
+            token: JWT authentication token
+            symbol: Trading pair (e.g., "BTC/USDT")
+            exchange: Exchange name (default: binance)
+            interval: Candle interval (default: 5m for current price)
+
+        Returns:
+            Latest candle dictionary or None on failure
+        """
+        candles = await self.get_candles(token, symbol, exchange, interval, limit=1)
+        if candles and len(candles) > 0:
+            return candles[0]
+        return None
+
+    async def get_indicator(
+        self,
+        token: str,
+        symbol: str,
+        indicator: str,
+        exchange: str = "binance",
+        interval: str = "4h",
+        params: Optional[dict] = None,
+    ) -> Optional[dict]:
+        """Get technical indicator value for a symbol.
+
+        Args:
+            token: JWT authentication token
+            symbol: Trading pair (e.g., "BTC/USDT")
+            indicator: Indicator name (rsi, macd, ema, bbands, etc.)
+            exchange: Exchange name (default: binance)
+            interval: Candle interval
+            params: Indicator-specific parameters (period, etc.)
+
+        Returns:
+            Indicator data dictionary or None on failure
+        """
+        try:
+            request_params = {
+                "symbol": symbol,
+                "exchange": exchange,
+                "interval": interval,
+                "indicator": indicator,
+            }
+            if params:
+                request_params.update(params)
+
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v1/market-data/indicator",
+                    params=request_params,
+                    headers=self._headers(token),
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get("response", {})
+                else:
+                    logger.error(
+                        f"Failed to fetch indicator: {response.status_code} - {response.text}"
+                    )
+                    return None
+
+        except httpx.TimeoutException:
+            logger.error("Timeout while fetching indicator")
+            return None
+        except Exception as e:
+            logger.error(f"Error fetching indicator: {e}")
+            return None
+
+    # =========================================================================
+    # Memories and Skills
+    # =========================================================================
+
+    async def get_active_memories(self, token: str) -> list[dict]:
+        """Get active memories for the authenticated user.
+
+        Args:
+            token: JWT authentication token
+
+        Returns:
+            List of {"name": str, "content": str} dicts, or empty list on failure
+        """
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v1/memories/active",
+                    headers=self._headers(token),
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get("response", [])
+                else:
+                    logger.error(
+                        f"Failed to get memories: {response.status_code} - {response.text}"
+                    )
+                    return []
+
+        except httpx.TimeoutException:
+            logger.error("Timeout while fetching memories")
+            return []
+        except Exception as e:
+            logger.error(f"Error fetching memories: {e}")
+            return []
+
+    async def get_active_skills(self, token: str) -> list[dict]:
+        """Get active skills for the authenticated user.
+
+        Args:
+            token: JWT authentication token
+
+        Returns:
+            List of skill dicts with fields:
+            - name: Skill identifier
+            - description: What the skill does
+            - content: Full SKILL.md content
+            - path: Virtual path to the skill
+            - target_agents: Agent names this skill applies to
+            - assets: Asset dicts with path, storage_url, type
+            Returns empty list on failure.
+        """
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v1/skills/active",
+                    headers=self._headers(token),
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get("response", [])
+                else:
+                    logger.error(
+                        f"Failed to get skills: {response.status_code} - {response.text}"
+                    )
+                    return []
+
+        except httpx.TimeoutException:
+            logger.error("Timeout while fetching skills")
+            return []
+        except Exception as e:
+            logger.error(f"Error fetching skills: {e}")
+            return []
+
+
+# Singleton instance
+basement_client = BasementClient()
