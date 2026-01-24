@@ -1,7 +1,6 @@
 """Technical indicator tools for market analysis."""
 
 import asyncio
-from typing import Optional
 
 from langchain_core.tools import ToolException, tool
 from pydantic import BaseModel, Field
@@ -19,7 +18,7 @@ class IndicatorSchema(BaseModel):
     )
     exchange: str = Field(default="binance", description="Exchange name")
     interval: str = Field(default="4h", description="Candle interval (e.g., '1h', '4h', '1d')")
-    period: Optional[int] = Field(default=None, description="Indicator period (e.g., 14 for RSI)")
+    period: int | None = Field(default=None, description="Indicator period (e.g., 14 for RSI)")
 
 
 @tool(args_schema=IndicatorSchema)
@@ -28,7 +27,7 @@ def get_indicator(
     indicator: str,
     exchange: str = "binance",
     interval: str = "4h",
-    period: Optional[int] = None,
+    period: int | None = None,
 ) -> str:
     """Fetches technical indicator values for a symbol.
 
@@ -88,7 +87,7 @@ def get_indicator(
         value = data.get("value", data.get("rsi", "N/A"))
         return f"RSI ({interval}) for {symbol}: {value}"
 
-    elif indicator_lower == "macd":
+    if indicator_lower == "macd":
         macd = data.get("macd", data.get("value", "N/A"))
         signal = data.get("signal", data.get("macd_signal", "N/A"))
         histogram = data.get("histogram", data.get("macd_histogram", "N/A"))
@@ -99,12 +98,12 @@ def get_indicator(
             f"- Histogram: {histogram}"
         )
 
-    elif indicator_lower in ("ema", "sma"):
+    if indicator_lower in ("ema", "sma"):
         value = data.get("value", "N/A")
         p = period or 20
         return f"{indicator.upper()}({p}) ({interval}) for {symbol}: {value}"
 
-    elif indicator_lower == "bbands":
+    if indicator_lower == "bbands":
         upper = data.get("upper", data.get("valueUpperBand", "N/A"))
         middle = data.get("middle", data.get("valueMiddleBand", "N/A"))
         lower = data.get("lower", data.get("valueLowerBand", "N/A"))
@@ -115,7 +114,7 @@ def get_indicator(
             f"- Lower: {lower}"
         )
 
-    elif indicator_lower == "stoch":
+    if indicator_lower == "stoch":
         k = data.get("k", data.get("value_k", "N/A"))
         d = data.get("d", data.get("value_d", "N/A"))
         return (
@@ -124,7 +123,7 @@ def get_indicator(
             f"- %D: {d}"
         )
 
-    elif indicator_lower == "dmi":
+    if indicator_lower == "dmi":
         plus_di = data.get("plus_di", data.get("adx_plus_di", "N/A"))
         minus_di = data.get("minus_di", data.get("adx_minus_di", "N/A"))
         adx = data.get("adx", "N/A")
@@ -135,7 +134,7 @@ def get_indicator(
             f"- ADX: {adx}"
         )
 
-    elif indicator_lower == "supertrend":
+    if indicator_lower == "supertrend":
         value = data.get("value", data.get("supertrend", "N/A"))
         direction = data.get("direction", data.get("supertrend_direction", "N/A"))
         return (
@@ -144,6 +143,5 @@ def get_indicator(
             f"- Direction: {direction}"
         )
 
-    else:
-        # Generic format for other indicators
-        return f"{indicator.upper()} ({interval}) for {symbol}: {data}"
+    # Generic format for other indicators
+    return f"{indicator.upper()} ({interval}) for {symbol}: {data}"

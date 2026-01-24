@@ -111,7 +111,7 @@ class SlashCommandController:
         self._suggestions: list[tuple[str, str]] = []
         self._selected_index = 0
 
-    def can_handle(self, text: str, cursor_index: int) -> bool:  # noqa: ARG002
+    def can_handle(self, text: str, cursor_index: int) -> bool:
         """Handle input that starts with /."""
         return text.startswith("/")
 
@@ -150,7 +150,7 @@ class SlashCommandController:
         else:
             self.reset()
 
-    def on_key(  # noqa: PLR0911
+    def on_key(
         self, event: events.Key, _text: str, cursor_index: int
     ) -> CompletionResult:
         """Handle key events for navigation and selection."""
@@ -250,7 +250,7 @@ def _get_project_files(root: Path) -> list[str]:
     return files
 
 
-def _fuzzy_score(query: str, candidate: str) -> float:  # noqa: PLR0911
+def _fuzzy_score(query: str, candidate: str) -> float:
     """Score a candidate against query. Higher = better match."""
     query_lower = query.lower()
     candidate_lower = candidate.lower()
@@ -415,7 +415,7 @@ class FuzzyFileController:
 
         return suggestions
 
-    def on_key(  # noqa: PLR0911
+    def on_key(
         self, event: events.Key, text: str, cursor_index: int
     ) -> CompletionResult:
         """Handle key events for navigation and selection."""

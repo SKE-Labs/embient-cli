@@ -6,7 +6,6 @@ handle errors gracefully instead of crashing the graph.
 
 import logging
 from collections.abc import Awaitable, Callable
-from typing import Union
 
 from langchain.agents.middleware.types import AgentMiddleware, ToolCallRequest
 from langchain_core.messages import ToolMessage
@@ -44,8 +43,8 @@ class ToolErrorHandlingMiddleware(AgentMiddleware):
     def wrap_tool_call(
         self,
         request: ToolCallRequest,
-        handler: Callable[[ToolCallRequest], Union[ToolMessage, Command]],
-    ) -> Union[ToolMessage, Command]:
+        handler: Callable[[ToolCallRequest], ToolMessage | Command],
+    ) -> ToolMessage | Command:
         """Wrap tool calls to catch ToolException.
 
         Args:
@@ -74,8 +73,8 @@ class ToolErrorHandlingMiddleware(AgentMiddleware):
     async def awrap_tool_call(
         self,
         request: ToolCallRequest,
-        handler: Callable[[ToolCallRequest], Awaitable[Union[ToolMessage, Command]]],
-    ) -> Union[ToolMessage, Command]:
+        handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command]],
+    ) -> ToolMessage | Command:
         """(async) Wrap tool calls to catch ToolException.
 
         Args:

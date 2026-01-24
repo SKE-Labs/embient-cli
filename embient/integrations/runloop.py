@@ -11,8 +11,8 @@ except ImportError:
 
 import os
 
-from deepagents.backends.protocol import ExecuteResponse, FileDownloadResponse, FileUploadResponse
-from deepagents.backends.sandbox import BaseSandbox
+from deepanalysts.backends.protocol import ExecuteResponse, FileDownloadResponse, FileUploadResponse
+from deepanalysts.backends.sandbox import BaseSandbox
 from runloop_api_client import Runloop
 
 

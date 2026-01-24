@@ -182,7 +182,7 @@ class TestLocalContextMiddleware:
         request = Mock()
         request.system_prompt = "Base system prompt"
         request.state = {
-            "local_context": "## Local Context\n\nCurrent branch: `main`\nMain branch available: `main`"  # noqa: E501
+            "local_context": "## Local Context\n\nCurrent branch: `main`\nMain branch available: `main`"
         }
 
         # Mock the override method to return a new request
@@ -237,7 +237,7 @@ class TestLocalContextMiddleware:
         request = Mock()
         request.system_prompt = "Base system prompt"
         request.state = {
-            "local_context": "## Local Context\n\nCurrent branch: `main`\nMain branch available: `main`"  # noqa: E501
+            "local_context": "## Local Context\n\nCurrent branch: `main`\nMain branch available: `main`"
         }
 
         # Mock the override method to return a new request

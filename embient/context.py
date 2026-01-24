@@ -18,30 +18,28 @@ Usage:
 """
 
 from contextvars import ContextVar
-from typing import Optional
-
 
 # JWT token for authenticated API calls
-_jwt_token_context: ContextVar[Optional[str]] = ContextVar("jwt_token", default=None)
+_jwt_token_context: ContextVar[str | None] = ContextVar("jwt_token", default=None)
 
 # Thread ID for conversation tracking
-_thread_id_context: ContextVar[Optional[str]] = ContextVar("thread_id", default=None)
+_thread_id_context: ContextVar[str | None] = ContextVar("thread_id", default=None)
 
 # User profile data (account balance, risk settings, etc.)
-_user_profile_context: ContextVar[Optional[dict]] = ContextVar("user_profile", default=None)
+_user_profile_context: ContextVar[dict | None] = ContextVar("user_profile", default=None)
 
 # Entry plan images for trading signals
-_entry_plan_images_context: ContextVar[Optional[list]] = ContextVar(
+_entry_plan_images_context: ContextVar[list | None] = ContextVar(
     "entry_plan_images", default=None
 )
 
 # Invalid condition images for trading signals
-_invalid_condition_images_context: ContextVar[Optional[list]] = ContextVar(
+_invalid_condition_images_context: ContextVar[list | None] = ContextVar(
     "invalid_condition_images", default=None
 )
 
 # Screenshots captured via HITL (e.g., chart screenshots from request_chart_screenshot)
-_screenshots_context: ContextVar[Optional[list]] = ContextVar("screenshots", default=None)
+_screenshots_context: ContextVar[list | None] = ContextVar("screenshots", default=None)
 
 
 # JWT Token
@@ -50,7 +48,7 @@ def set_jwt_token(token: str) -> None:
     _jwt_token_context.set(token)
 
 
-def get_jwt_token() -> Optional[str]:
+def get_jwt_token() -> str | None:
     """Get the JWT token from the current session context."""
     return _jwt_token_context.get()
 
@@ -61,7 +59,7 @@ def set_thread_id(thread_id: str) -> None:
     _thread_id_context.set(thread_id)
 
 
-def get_thread_id() -> Optional[str]:
+def get_thread_id() -> str | None:
     """Get the thread ID from the current session context."""
     return _thread_id_context.get()
 
@@ -72,7 +70,7 @@ def set_user_profile(profile: dict) -> None:
     _user_profile_context.set(profile)
 
 
-def get_user_profile() -> Optional[dict]:
+def get_user_profile() -> dict | None:
     """Get the user profile from the current session context."""
     return _user_profile_context.get()
 
@@ -83,7 +81,7 @@ def set_entry_plan_images(images: list) -> None:
     _entry_plan_images_context.set(images)
 
 
-def get_entry_plan_images() -> Optional[list]:
+def get_entry_plan_images() -> list | None:
     """Get the entry plan images from the current session context."""
     return _entry_plan_images_context.get()
 
@@ -94,7 +92,7 @@ def set_invalid_condition_images(images: list) -> None:
     _invalid_condition_images_context.set(images)
 
 
-def get_invalid_condition_images() -> Optional[list]:
+def get_invalid_condition_images() -> list | None:
     """Get the invalid condition images from the current session context."""
     return _invalid_condition_images_context.get()
 
@@ -109,7 +107,7 @@ def set_screenshots(images: list) -> None:
     _screenshots_context.set(images)
 
 
-def get_screenshots() -> Optional[list]:
+def get_screenshots() -> list | None:
     """Get the screenshots from the current session context."""
     return _screenshots_context.get()
 

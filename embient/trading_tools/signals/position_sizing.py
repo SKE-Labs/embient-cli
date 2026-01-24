@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-from typing import Optional, Tuple
 
 from langchain_core.tools import ToolException, tool
 from pydantic import BaseModel, Field
@@ -40,12 +39,12 @@ def _round_quantity(quantity: float, symbol: str) -> float:
 
 
 def calculate_position_sizing(
-    user_profile: Optional[dict],
+    user_profile: dict | None,
     entry_price: float,
     stop_loss: float,
-    position_size_percent: Optional[float] = None,
+    position_size_percent: float | None = None,
     symbol: str = "",
-) -> Tuple[Optional[float], Optional[float], Optional[float]]:
+) -> tuple[float | None, float | None, float | None]:
     """Calculate position sizing using risk-based approach.
 
     This calculation uses the distance between entry price and stop loss to determine
@@ -120,7 +119,7 @@ class PositionSizeSchema(BaseModel):
     symbol: str = Field(description="Trading symbol (e.g., 'BTC/USDT')")
     entry_price: float = Field(description="Entry price for the trade")
     stop_loss: float = Field(description="Stop loss price level")
-    position_size_percent: Optional[float] = Field(
+    position_size_percent: float | None = Field(
         default=None,
         description="Risk as percentage of balance (0-100). Uses profile default if not specified.",
     )
@@ -131,7 +130,7 @@ def calculate_position_size(
     symbol: str,
     entry_price: float,
     stop_loss: float,
-    position_size_percent: Optional[float] = None,
+    position_size_percent: float | None = None,
 ) -> str:
     """Calculates position sizing (quantity, leverage, capital) based on risk management.
 

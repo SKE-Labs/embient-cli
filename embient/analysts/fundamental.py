@@ -4,7 +4,6 @@ from langchain_core.language_models import BaseChatModel
 
 from embient.middleware import SubAgent
 
-
 FUNDAMENTAL_ANALYST_PROMPT = """# Fundamental Analyst
 
 You are a fundamental analysis specialist. You excel at researching financial statements, valuation metrics, news catalysts, and market events.

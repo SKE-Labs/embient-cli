@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from rich.text import Text
-from textual import events  # noqa: TC002 - used at runtime in _on_key
+from textual import events
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.message import Message
@@ -381,7 +381,7 @@ class ChatInput(Vertical):
 
     def on_chat_text_area_history_next(
         self,
-        event: ChatTextArea.HistoryNext,  # noqa: ARG002
+        event: ChatTextArea.HistoryNext,
     ) -> None:
         """Handle history next request."""
         entry = self._history.get_next()

@@ -9,7 +9,6 @@ from embient.trading_tools import (
     get_latest_candle,
 )
 
-
 TECHNICAL_ANALYST_PROMPT = """# Technical Analyst
 
 You are a technical analysis specialist. You excel at multi-timeframe chart analysis, pattern recognition, and precise level identification.

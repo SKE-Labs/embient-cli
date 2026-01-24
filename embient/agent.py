@@ -5,11 +5,9 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from deepagents import create_deep_agent
-from deepagents.backends import CompositeBackend
-from deepagents.backends.filesystem import FilesystemBackend
-from deepagents.backends.sandbox import SandboxBackendProtocol
-from deepagents.middleware import MemoryMiddleware, SkillsMiddleware
+from deepanalysts.backends import CompositeBackend, FilesystemBackend, SandboxBackendProtocol
+from deepanalysts.middleware import FilesystemMiddleware, MemoryMiddleware, SkillsMiddleware
+from langchain.agents import create_agent
 from langchain.agents.middleware import (
     InterruptOnConfig,
 )
@@ -475,6 +473,9 @@ def create_cli_agent(
             routes={},
         )
 
+    # Add filesystem middleware with the composite backend
+    agent_middleware.append(FilesystemMiddleware(backend=composite_backend))
+
     # Create the agent
     # Use provided checkpointer or fallback to InMemorySaver
     final_checkpointer = checkpointer if checkpointer is not None else InMemorySaver()
@@ -509,12 +510,11 @@ def create_cli_agent(
             memory=memory_sources,
         ).with_config(config)
     else:
-        # Code mode: Use standard deep agent
-        agent = create_deep_agent(
+        # Code mode: Use standard langchain agent
+        agent = create_agent(
             model=model,
             system_prompt=system_prompt,
             tools=tools,
-            backend=composite_backend,
             middleware=agent_middleware,
             interrupt_on=interrupt_on,
             checkpointer=final_checkpointer,

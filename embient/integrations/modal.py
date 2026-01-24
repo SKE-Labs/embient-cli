@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from deepagents.backends.protocol import (
+from deepanalysts.backends.protocol import (
     ExecuteResponse,
     FileDownloadResponse,
     FileUploadResponse,
 )
-from deepagents.backends.sandbox import BaseSandbox
+from deepanalysts.backends.sandbox import BaseSandbox
 
 if TYPE_CHECKING:
     import modal

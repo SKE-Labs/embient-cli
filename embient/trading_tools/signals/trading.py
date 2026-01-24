@@ -1,7 +1,6 @@
 """Trading signal tools for creating, updating, and listing signals."""
 
 import asyncio
-from typing import Optional
 
 from langchain_core.tools import ToolException, tool
 from pydantic import BaseModel, Field
@@ -14,11 +13,11 @@ from embient.context import get_thread_id
 class GetSignalsSchema(BaseModel):
     """Arguments for get_active_trading_signals tool."""
 
-    status: Optional[str] = Field(
+    status: str | None = Field(
         default=None,
         description="Filter by status: active, expired, executed, cancelled",
     )
-    ticker: Optional[str] = Field(
+    ticker: str | None = Field(
         default=None,
         description="Filter by ticker symbol (e.g., 'BTC/USDT')",
     )
@@ -26,8 +25,8 @@ class GetSignalsSchema(BaseModel):
 
 @tool(args_schema=GetSignalsSchema)
 def get_active_trading_signals(
-    status: Optional[str] = None,
-    ticker: Optional[str] = None,
+    status: str | None = None,
+    ticker: str | None = None,
 ) -> str:
     """Retrieves trading signals for the authenticated user.
 
@@ -96,12 +95,12 @@ class CreateSignalSchema(BaseModel):
     confidence_score: float = Field(description="Confidence 0-100")
     rationale: str = Field(description="Reasoning behind the signal")
     invalid_condition: str = Field(description="Conditions that would invalidate the signal")
-    take_profit_levels: Optional[list[float]] = Field(
+    take_profit_levels: list[float] | None = Field(
         default=None, description="List of take profit price levels"
     )
-    quantity: Optional[float] = Field(default=None, description="Number of units to trade")
-    leverage: Optional[float] = Field(default=None, description="Leverage multiplier (1.0-125.0)")
-    capital_allocated: Optional[float] = Field(
+    quantity: float | None = Field(default=None, description="Number of units to trade")
+    leverage: float | None = Field(default=None, description="Leverage multiplier (1.0-125.0)")
+    capital_allocated: float | None = Field(
         default=None, description="Capital/margin allocated to this trade"
     )
 
@@ -116,10 +115,10 @@ def create_trading_signal(
     confidence_score: float,
     rationale: str,
     invalid_condition: str,
-    take_profit_levels: Optional[list[float]] = None,
-    quantity: Optional[float] = None,
-    leverage: Optional[float] = None,
-    capital_allocated: Optional[float] = None,
+    take_profit_levels: list[float] | None = None,
+    quantity: float | None = None,
+    leverage: float | None = None,
+    capital_allocated: float | None = None,
 ) -> str:
     """Creates a new trading signal.
 
@@ -206,28 +205,28 @@ class UpdateSignalSchema(BaseModel):
     """Arguments for update_trading_signal tool."""
 
     signal_id: int = Field(description="The trading signal ID to update")
-    status: Optional[str] = Field(
+    status: str | None = Field(
         default=None,
         description="New status: active, expired, executed, cancelled",
     )
-    entry_price: Optional[float] = Field(default=None, description="Actual entry price")
-    exit_price: Optional[float] = Field(default=None, description="Actual exit price")
-    stop_loss: Optional[float] = Field(default=None, description="Updated stop loss")
-    take_profit_levels: Optional[list[float]] = Field(
+    entry_price: float | None = Field(default=None, description="Actual entry price")
+    exit_price: float | None = Field(default=None, description="Actual exit price")
+    stop_loss: float | None = Field(default=None, description="Updated stop loss")
+    take_profit_levels: list[float] | None = Field(
         default=None, description="Updated take profit levels"
     )
-    reflection: Optional[str] = Field(default=None, description="Post-trade reflection notes")
+    reflection: str | None = Field(default=None, description="Post-trade reflection notes")
 
 
 @tool(args_schema=UpdateSignalSchema)
 def update_trading_signal(
     signal_id: int,
-    status: Optional[str] = None,
-    entry_price: Optional[float] = None,
-    exit_price: Optional[float] = None,
-    stop_loss: Optional[float] = None,
-    take_profit_levels: Optional[list[float]] = None,
-    reflection: Optional[str] = None,
+    status: str | None = None,
+    entry_price: float | None = None,
+    exit_price: float | None = None,
+    stop_loss: float | None = None,
+    take_profit_levels: list[float] | None = None,
+    reflection: str | None = None,
 ) -> str:
     """Updates an existing trading signal.
 

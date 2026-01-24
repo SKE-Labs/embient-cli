@@ -142,7 +142,7 @@ class StatusBar(Horizontal):
             indicator.update("")
             indicator.add_class("normal")
 
-    def watch_auto_approve(self, new_value: bool) -> None:  # noqa: FBT001
+    def watch_auto_approve(self, new_value: bool) -> None:
         """Update auto-approve indicator when state changes."""
         try:
             indicator = self.query_one("#auto-approve-indicator", Static)

@@ -1,9 +1,7 @@
 """Candle data tools for market analysis."""
 
 import asyncio
-import re
 from datetime import datetime as dt
-from typing import Optional
 
 from langchain_core.tools import ToolException, tool
 from pydantic import BaseModel, Field
@@ -112,17 +110,17 @@ def get_candles_around_date(
 
     symbol = _normalize_symbol(symbol)
 
-    # Parse the date string
+    # Validate date format
     try:
         normalized_date = date.replace(" ", "T")
         if "T" in normalized_date:
-            parsed_date = dt.fromisoformat(normalized_date)
+            dt.fromisoformat(normalized_date)
         else:
-            parsed_date = dt.fromisoformat(f"{normalized_date}T00:00:00")
+            dt.fromisoformat(f"{normalized_date}T00:00:00")
     except ValueError as e:
         raise ToolException(
             f"Invalid date format: {date}. Use YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS. Error: {e}"
-        )
+        ) from e
 
     # Get candles around the date (fetch more and filter)
     candles = asyncio.get_event_loop().run_until_complete(

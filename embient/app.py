@@ -1,5 +1,4 @@
 """Textual UI application for Embient CLI."""
-# ruff: noqa: BLE001, PLR0912, PLR2004, S110
 
 from __future__ import annotations
 
@@ -250,7 +249,7 @@ class DeepAgentsApp(App):
         *,
         agent: Pregel | None = None,
         assistant_id: str | None = None,
-        backend: Any = None,  # noqa: ANN401  # CompositeBackend
+        backend: Any = None,  # CompositeBackend
         auto_approve: bool = False,
         cwd: str | Path | None = None,
         thread_id: str | None = None,
@@ -414,7 +413,7 @@ class DeepAgentsApp(App):
 
     async def _request_approval(
         self,
-        action_request: Any,  # noqa: ANN401
+        action_request: Any,
         assistant_id: str | None,
     ) -> asyncio.Future:
         """Request user approval inline in the messages area.
@@ -430,7 +429,7 @@ class DeepAgentsApp(App):
 
         # If there's already a pending approval, wait for it to complete first
         if self._pending_approval_widget is not None:
-            while self._pending_approval_widget is not None:  # noqa: ASYNC110
+            while self._pending_approval_widget is not None:
                 await asyncio.sleep(0.1)
 
         # Create menu with unique ID to avoid conflicts
@@ -489,7 +488,7 @@ class DeepAgentsApp(App):
 
     async def on_approval_menu_decided(
         self,
-        event: Any,  # noqa: ANN401, ARG002
+        event: Any,
     ) -> None:
         """Handle approval menu decision - remove from messages and refocus input."""
         # Remove ApprovalMenu using stored reference
@@ -924,7 +923,7 @@ class DeepAgentsApp(App):
 
         self.call_after_refresh(self._chat_input.focus_input)
 
-    def on_mouse_up(self, event: MouseUp) -> None:  # noqa: ARG002
+    def on_mouse_up(self, event: MouseUp) -> None:
         """Copy selection to clipboard on mouse release."""
         copy_selection_to_clipboard(self)
 
@@ -933,7 +932,7 @@ async def run_textual_app(
     *,
     agent: Pregel | None = None,
     assistant_id: str | None = None,
-    backend: Any = None,  # noqa: ANN401  # CompositeBackend
+    backend: Any = None,  # CompositeBackend
     auto_approve: bool = False,
     cwd: str | Path | None = None,
     thread_id: str | None = None,

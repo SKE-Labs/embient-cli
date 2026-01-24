@@ -101,7 +101,7 @@ Files not intended to be loaded into context, but rather used within the output 
 ---
 
 **Any unneeded directories can be deleted.** Not every skill requires all three types of resources.
-"""  # noqa: E501
+"""
 
 EXAMPLE_SCRIPT = '''#!/usr/bin/env python3
 """

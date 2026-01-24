@@ -1,5 +1,4 @@
 """Textual UI adapter for agent execution."""
-# ruff: noqa: PLR0912, PLR0915, ANN401, PLR2004, BLE001, TRY203
 # This module has complex streaming logic ported from execution.py
 
 from __future__ import annotations
@@ -612,7 +611,7 @@ async def execute_task_textual(
                 content="[SYSTEM] Task interrupted by user. Previous operation was cancelled."
             )
             await agent.aupdate_state(config, {"messages": [cancellation_msg]})
-        except Exception:  # noqa: S110
+        except Exception:
             pass  # State update is best-effort
 
         # Mark tools as rejected AFTER saving state
@@ -644,7 +643,7 @@ async def execute_task_textual(
                 content="[SYSTEM] Task interrupted by user. Previous operation was cancelled."
             )
             await agent.aupdate_state(config, {"messages": [cancellation_msg]})
-        except Exception:  # noqa: S110
+        except Exception:
             pass  # State update is best-effort
 
         # Mark tools as rejected AFTER saving state

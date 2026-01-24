@@ -15,7 +15,6 @@ Usage:
 """
 
 import logging
-from typing import Optional
 
 import httpx
 
@@ -52,11 +51,11 @@ class BasementClient:
     async def get_trading_signals(
         self,
         token: str,
-        status: Optional[str] = None,
-        ticker: Optional[str] = None,
+        status: str | None = None,
+        ticker: str | None = None,
         page: int = 1,
         limit: int = 10,
-    ) -> Optional[list[dict]]:
+    ) -> list[dict] | None:
         """Retrieve trading signals for the authenticated user.
 
         Args:
@@ -89,14 +88,13 @@ class BasementClient:
                     # Handle both list and dict response formats
                     if isinstance(result, list):
                         return result
-                    elif isinstance(result, dict):
+                    if isinstance(result, dict):
                         return result.get("signals", [])
                     return None
-                else:
-                    logger.error(
-                        f"Failed to get trading signals: {response.status_code} - {response.text}"
-                    )
-                    return None
+                logger.error(
+                    f"Failed to get trading signals: {response.status_code} - {response.text}"
+                )
+                return None
 
         except httpx.TimeoutException:
             logger.error("Timeout while fetching trading signals")
@@ -116,19 +114,19 @@ class BasementClient:
         confidence_score: float,
         rationale: str,
         invalid_condition: str,
-        take_profit_levels: Optional[list[float]] = None,
-        entry_price: Optional[float] = None,
-        quantity: Optional[float] = None,
-        leverage: Optional[float] = None,
-        capital_allocated: Optional[float] = None,
-        entry_plan_images: Optional[list[str]] = None,
-        invalid_condition_images: Optional[list[str]] = None,
-        monitoring_enabled: Optional[bool] = None,
-        monitoring_interval_minutes: Optional[int] = None,
-        thread_id: Optional[str] = None,
-        expires_at: Optional[str] = None,
-        auto_execute: Optional[bool] = None,
-    ) -> Optional[dict]:
+        take_profit_levels: list[float] | None = None,
+        entry_price: float | None = None,
+        quantity: float | None = None,
+        leverage: float | None = None,
+        capital_allocated: float | None = None,
+        entry_plan_images: list[str] | None = None,
+        invalid_condition_images: list[str] | None = None,
+        monitoring_enabled: bool | None = None,
+        monitoring_interval_minutes: int | None = None,
+        thread_id: str | None = None,
+        expires_at: str | None = None,
+        auto_execute: bool | None = None,
+    ) -> dict | None:
         """Create a new trading signal.
 
         Args:
@@ -199,11 +197,10 @@ class BasementClient:
                     data = response.json()
                     logger.info(f"Created trading signal for {symbol}")
                     return data.get("response")
-                else:
-                    logger.error(
-                        f"Failed to create signal: {response.status_code} - {response.text}"
-                    )
-                    return None
+                logger.error(
+                    f"Failed to create signal: {response.status_code} - {response.text}"
+                )
+                return None
 
         except httpx.TimeoutException:
             logger.error("Timeout while creating trading signal")
@@ -216,23 +213,23 @@ class BasementClient:
         self,
         token: str,
         signal_id: int,
-        status: Optional[str] = None,
-        entry_price: Optional[float] = None,
-        exit_price: Optional[float] = None,
-        profit_loss: Optional[float] = None,
-        executed_at: Optional[str] = None,
-        expires_at: Optional[str] = None,
-        reflection: Optional[str] = None,
-        current_price: Optional[float] = None,
-        filled_quantity: Optional[float] = None,
-        invalid_condition: Optional[str] = None,
-        invalid_condition_images: Optional[list[str]] = None,
-        stop_loss: Optional[float] = None,
-        take_profit_levels: Optional[list[float]] = None,
-        entry_conditions: Optional[str] = None,
-        rationale: Optional[str] = None,
-        entry_plan_images: Optional[list[str]] = None,
-    ) -> Optional[dict]:
+        status: str | None = None,
+        entry_price: float | None = None,
+        exit_price: float | None = None,
+        profit_loss: float | None = None,
+        executed_at: str | None = None,
+        expires_at: str | None = None,
+        reflection: str | None = None,
+        current_price: float | None = None,
+        filled_quantity: float | None = None,
+        invalid_condition: str | None = None,
+        invalid_condition_images: list[str] | None = None,
+        stop_loss: float | None = None,
+        take_profit_levels: list[float] | None = None,
+        entry_conditions: str | None = None,
+        rationale: str | None = None,
+        entry_plan_images: list[str] | None = None,
+    ) -> dict | None:
         """Update an existing trading signal.
 
         Args:
@@ -297,11 +294,10 @@ class BasementClient:
                     data = response.json()
                     logger.info(f"Updated trading signal ID {signal_id}")
                     return data.get("response")
-                else:
-                    logger.error(
-                        f"Failed to update signal: {response.status_code} - {response.text}"
-                    )
-                    return None
+                logger.error(
+                    f"Failed to update signal: {response.status_code} - {response.text}"
+                )
+                return None
 
         except httpx.TimeoutException:
             logger.error("Timeout while updating trading signal")
@@ -314,7 +310,7 @@ class BasementClient:
     # User Profile
     # =========================================================================
 
-    async def get_user_profile(self, token: str) -> Optional[dict]:
+    async def get_user_profile(self, token: str) -> dict | None:
         """Retrieve the current user's profile including risk settings.
 
         Args:
@@ -339,11 +335,10 @@ class BasementClient:
                 if response.status_code == 200:
                     data = response.json()
                     return data.get("response", {})
-                else:
-                    logger.error(
-                        f"Failed to fetch profile: {response.status_code} - {response.text}"
-                    )
-                    return None
+                logger.error(
+                    f"Failed to fetch profile: {response.status_code} - {response.text}"
+                )
+                return None
 
         except httpx.TimeoutException:
             logger.error("Timeout while fetching user profile")
@@ -363,7 +358,7 @@ class BasementClient:
         exchange: str = "binance",
         interval: str = "4h",
         limit: int = 100,
-    ) -> Optional[list[dict]]:
+    ) -> list[dict] | None:
         """Retrieve candlestick data for a symbol.
 
         Args:
@@ -394,11 +389,10 @@ class BasementClient:
                 if response.status_code == 200:
                     data = response.json()
                     return data.get("response", [])
-                else:
-                    logger.error(
-                        f"Failed to fetch candles: {response.status_code} - {response.text}"
-                    )
-                    return None
+                logger.error(
+                    f"Failed to fetch candles: {response.status_code} - {response.text}"
+                )
+                return None
 
         except httpx.TimeoutException:
             logger.error("Timeout while fetching candles")
@@ -413,7 +407,7 @@ class BasementClient:
         symbol: str,
         exchange: str = "binance",
         interval: str = "5m",
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """Get the most recent candle for a symbol.
 
         Args:
@@ -437,8 +431,8 @@ class BasementClient:
         indicator: str,
         exchange: str = "binance",
         interval: str = "4h",
-        params: Optional[dict] = None,
-    ) -> Optional[dict]:
+        params: dict | None = None,
+    ) -> dict | None:
         """Get technical indicator value for a symbol.
 
         Args:
@@ -472,11 +466,10 @@ class BasementClient:
                 if response.status_code == 200:
                     data = response.json()
                     return data.get("response", {})
-                else:
-                    logger.error(
-                        f"Failed to fetch indicator: {response.status_code} - {response.text}"
-                    )
-                    return None
+                logger.error(
+                    f"Failed to fetch indicator: {response.status_code} - {response.text}"
+                )
+                return None
 
         except httpx.TimeoutException:
             logger.error("Timeout while fetching indicator")
@@ -508,11 +501,10 @@ class BasementClient:
                 if response.status_code == 200:
                     data = response.json()
                     return data.get("response", [])
-                else:
-                    logger.error(
-                        f"Failed to get memories: {response.status_code} - {response.text}"
-                    )
-                    return []
+                logger.error(
+                    f"Failed to get memories: {response.status_code} - {response.text}"
+                )
+                return []
 
         except httpx.TimeoutException:
             logger.error("Timeout while fetching memories")
@@ -547,11 +539,10 @@ class BasementClient:
                 if response.status_code == 200:
                     data = response.json()
                     return data.get("response", [])
-                else:
-                    logger.error(
-                        f"Failed to get skills: {response.status_code} - {response.text}"
-                    )
-                    return []
+                logger.error(
+                    f"Failed to get skills: {response.status_code} - {response.text}"
+                )
+                return []
 
         except httpx.TimeoutException:
             logger.error("Timeout while fetching skills")

@@ -7,7 +7,7 @@ using the `task` tool pattern instead of explicit StateGraph routing.
 from collections.abc import Sequence
 from typing import Any
 
-from deepagents.middleware import (
+from deepanalysts.middleware import (
     FilesystemMiddleware,
     MemoryMiddleware,
     SkillsMiddleware,
@@ -21,7 +21,6 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Checkpointer
 
 from embient.middleware import SubAgentMiddleware, ToolErrorHandlingMiddleware
-
 
 SUPERVISOR_PROMPT = """# Embient AI Trading Analyst Supervisor
 

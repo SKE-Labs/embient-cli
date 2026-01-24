@@ -21,10 +21,9 @@ import sys
 import threading
 import webbrowser
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from typing import Optional
 from urllib.parse import parse_qs, urlencode, urlparse
 
 from rich.console import Console
@@ -55,10 +54,10 @@ class Credentials:
     """Stored authentication credentials."""
 
     jwt_token: str
-    refresh_token: Optional[str]
-    expires_at: Optional[str]  # ISO format
-    user_id: Optional[str]
-    email: Optional[str]
+    refresh_token: str | None
+    expires_at: str | None  # ISO format
+    user_id: str | None
+    email: str | None
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON storage."""
@@ -87,7 +86,7 @@ class Credentials:
             return False
         try:
             expires = datetime.fromisoformat(self.expires_at.replace("Z", "+00:00"))
-            return datetime.now(timezone.utc) >= expires
+            return datetime.now(UTC) >= expires
         except (ValueError, TypeError):
             return False
 
@@ -110,7 +109,7 @@ def save_credentials(credentials: Credentials) -> None:
         pass  # Windows doesn't support chmod
 
 
-def load_credentials() -> Optional[Credentials]:
+def load_credentials() -> Credentials | None:
     """Load credentials from the credentials file.
 
     Returns:
@@ -158,7 +157,7 @@ def is_authenticated() -> bool:
     return True
 
 
-def get_jwt_token() -> Optional[str]:
+def get_jwt_token() -> str | None:
     """Get the stored JWT token if authenticated.
 
     Returns:
@@ -173,12 +172,11 @@ def get_jwt_token() -> Optional[str]:
 class CallbackHandler(BaseHTTPRequestHandler):
     """HTTP handler for OAuth callback."""
 
-    credentials: Optional[Credentials] = None
-    error: Optional[str] = None
+    credentials: Credentials | None = None
+    error: str | None = None
 
-    def log_message(self, format: str, *args) -> None:  # noqa: A002
+    def log_message(self, format: str, *args) -> None:
         """Suppress default logging."""
-        pass
 
     def do_GET(self) -> None:
         """Handle GET request from OAuth callback."""
@@ -210,7 +208,7 @@ class CallbackHandler(BaseHTTPRequestHandler):
             if expires_in:
                 try:
                     expires_at = (
-                        datetime.now(timezone.utc)
+                        datetime.now(UTC)
                         .replace(microsecond=0)
                         .isoformat()
                         .replace("+00:00", "Z")
@@ -219,7 +217,7 @@ class CallbackHandler(BaseHTTPRequestHandler):
                     from datetime import timedelta
 
                     expires_at = (
-                        (datetime.now(timezone.utc) + timedelta(seconds=int(expires_in)))
+                        (datetime.now(UTC) + timedelta(seconds=int(expires_in)))
                         .replace(microsecond=0)
                         .isoformat()
                         .replace("+00:00", "Z")
@@ -283,7 +281,7 @@ class CallbackHandler(BaseHTTPRequestHandler):
         self.wfile.write(html.encode())
 
 
-def login_interactive(basement_api: Optional[str] = None) -> bool:
+def login_interactive(basement_api: str | None = None) -> bool:
     """Perform interactive browser-based login.
 
     Opens browser to Basement auth URL and starts local callback server.
@@ -325,7 +323,7 @@ def login_interactive(basement_api: Optional[str] = None) -> bool:
     # Open browser
     try:
         webbrowser.open(auth_url)
-    except Exception:  # noqa: BLE001
+    except Exception:
         console.print("[yellow]Could not open browser automatically.[/yellow]")
         console.print(f"Please open this URL manually:\n{auth_url}")
 

@@ -1,0 +1,36 @@
+[project]
+name = "deepanalysts"
+version = "0.1.0"
+description = "LangChain/LangGraph middleware for building AI agents with memory, skills, and filesystem support"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11,<4.0"
+dependencies = [
+    "langchain>=1.2.3,<2.0.0",
+    "langgraph>=0.2.0",
+    "httpx>=0.28.0",
+    "pyyaml>=6.0",
+    "tenacity>=8.2.0",
+    "wcmatch>=8.5.0",
+]
+
+[project.optional-dependencies]
+postgres = [
+    "langgraph-checkpoint-postgres>=2.0.0",
+    "psycopg[binary,pool]>=3.2.0",
+]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-anyio>=0.0.0",
+    "anyio>=4.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=73.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["deepanalysts*"]
+
+[tool.setuptools.package-data]
+deepanalysts = ["py.typed"]

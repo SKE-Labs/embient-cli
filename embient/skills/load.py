@@ -1,18 +1,18 @@
 """Skill loader for CLI commands.
 
 This module provides filesystem-based skill loading for CLI operations (list, create, info).
-It wraps the prebuilt middleware functionality from the deepagents library and adapts
+It wraps the prebuilt middleware functionality from the deepanalysts library and adapts
 it for direct filesystem access needed by CLI commands.
 
-For middleware usage within agents, use deepagents.middleware.skills.SkillsMiddleware directly.
+For middleware usage within agents, use deepanalysts.middleware.skills.SkillsMiddleware directly.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from deepagents.backends.filesystem import FilesystemBackend
-from deepagents.middleware.skills import SkillMetadata, _list_skills as list_skills_from_backend
+from deepanalysts.backends import FilesystemBackend
+from deepanalysts.middleware.skills import SkillMetadata, _list_skills as list_skills_from_backend
 
 
 class ExtendedSkillMetadata(SkillMetadata):

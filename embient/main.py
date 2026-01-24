@@ -1,5 +1,5 @@
 """Main entry point and CLI loop for Embient."""
-# ruff: noqa: E402, BLE001, PLR0912, PLR0915
+# ruff: noqa: E402
 
 # Suppress deprecation warnings from langchain_core (e.g., Pydantic V1 on Python 3.14+)
 # ruff: noqa: E402
@@ -24,6 +24,7 @@ from embient._version import __version__
 
 # Now safe to import agent (which imports LangChain modules)
 from embient.agent import create_cli_agent, list_agents, reset_agent
+from embient.auth import login_command, logout_command, status_command
 
 # CRITICAL: Import config FIRST to set LANGSMITH_PROJECT before LangChain loads
 from embient.config import (
@@ -41,7 +42,6 @@ from embient.sessions import (
     list_threads_command,
     thread_exists,
 )
-from embient.auth import login_command, logout_command, status_command
 from embient.skills import execute_skills_command, setup_skills_parser
 from embient.tools import fetch_url, http_request, web_search
 from embient.ui import show_help

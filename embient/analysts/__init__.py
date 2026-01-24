@@ -7,7 +7,7 @@ from embient.analysts.technical import get_technical_analyst
 
 __all__ = [
     "create_deep_analysts",
-    "get_technical_analyst",
     "get_fundamental_analyst",
     "get_signal_manager",
+    "get_technical_analyst",
 ]

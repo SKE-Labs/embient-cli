@@ -7,12 +7,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
-from deepagents.backends.utils import perform_string_replacement
+from deepanalysts.backends.utils import perform_string_replacement
 
 from embient.config import settings
 
 if TYPE_CHECKING:
-    from deepagents.backends.protocol import BACKEND_TYPES
+    from deepanalysts.backends.protocol import BACKEND_TYPES
 
 FileOpStatus = Literal["pending", "success", "error"]
 

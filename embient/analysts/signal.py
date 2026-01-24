@@ -14,7 +14,6 @@ from embient.trading_tools import (
     update_trading_signal,
 )
 
-
 SIGNAL_MANAGER_PROMPT = """# Signal Manager
 
 You manage trading signals: create, update, and list.

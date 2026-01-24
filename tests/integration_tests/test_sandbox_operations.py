@@ -15,7 +15,7 @@ to avoid the overhead of spinning up multiple containers.
 from collections.abc import Iterator
 
 import pytest
-from deepagents.backends.protocol import SandboxBackendProtocol
+from deepanalysts.backends.protocol import SandboxBackendProtocol
 
 from embient.integrations.sandbox_factory import create_sandbox
 

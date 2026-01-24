@@ -60,7 +60,7 @@ class ApprovalMenu(Container):
         self,
         action_request: dict[str, Any],
         _assistant_id: str | None = None,
-        id: str | None = None,  # noqa: A002
+        id: str | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(id=id or "approval-menu", classes="approval-menu", **kwargs)

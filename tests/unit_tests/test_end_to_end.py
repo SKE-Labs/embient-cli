@@ -7,8 +7,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
-from deepagents.backends import CompositeBackend
-from deepagents.backends.filesystem import FilesystemBackend
+from deepanalysts.backends import CompositeBackend, FilesystemBackend
 from langchain_core.language_models import LanguageModelInput
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage, HumanMessage
