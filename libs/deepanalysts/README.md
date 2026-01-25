@@ -2,6 +2,18 @@
 
 LangChain/LangGraph middleware for building AI agents with memory, skills, filesystem support, and subagent orchestration.
 
+## Installation
+
+```bash
+pip install deepanalysts
+```
+
+Or with uv:
+
+```bash
+uv add deepanalysts
+```
+
 ## Overview
 
 Deep Analysts provides a complete middleware stack for LangChain agents:
@@ -11,36 +23,6 @@ Deep Analysts provides a complete middleware stack for LangChain agents:
 - **API Integration**: Basement client for syncing skills/memories to cloud
 
 **No dependencies on deepagents** - uses only langchain, langgraph, and standard libraries.
-
-## Installation
-
-### For embient-cli (local development)
-
-The package is already configured as a local dependency in `pyproject.toml`:
-
-```bash
-cd embient-cli
-uv sync
-```
-
-### For park (proprietary cloud service)
-
-Add to `pyproject.toml`:
-
-```toml
-[project]
-dependencies = [
-    "deepanalysts>=0.1.0",
-    # ... other deps
-]
-
-[tool.uv.sources]
-# Option 1: Git subdirectory (recommended for development)
-deepanalysts = { git = "https://github.com/SKE-Labs/embient-cli.git", subdirectory = "libs/deepanalysts" }
-
-# Option 2: After publishing to PyPI
-# deepanalysts = ">=0.1.0"
-```
 
 ## Usage
 
@@ -75,8 +57,8 @@ from deepanalysts.backends import StoreBackend
 middleware = MemoryMiddleware(
     backend=lambda rt: StoreBackend(rt),
     sources=[
-        "~/.embient/AGENTS.md",
-        "./.embient/AGENTS.md",
+        "~/.config/myapp/AGENTS.md",
+        "./.myapp/AGENTS.md",
     ],
 )
 
