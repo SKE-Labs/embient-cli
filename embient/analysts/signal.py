@@ -1,11 +1,11 @@
 """Signal manager subagent definition."""
 
+from deepanalysts import SubAgent
 from langchain.agents.middleware.types import AgentState
 from langchain.messages import ToolCall
 from langchain_core.language_models import BaseChatModel
 from langgraph.runtime import Runtime
 
-from embient.middleware import SubAgent
 from embient.trading_tools import (
     calculate_position_size,
     create_trading_signal,
@@ -70,9 +70,7 @@ Some tool calls require approval. If rejected:
 """
 
 
-def _format_create_signal_description(
-    tool_call: ToolCall, _state: AgentState, _runtime: Runtime
-) -> str:
+def _format_create_signal_description(tool_call: ToolCall, _state: AgentState, _runtime: Runtime) -> str:
     """Format create_trading_signal tool call for HITL approval prompt."""
     args = tool_call.get("args", {})
     symbol = args.get("symbol", "Unknown")
@@ -105,9 +103,7 @@ Position Sizing:
 Review carefully before approving."""
 
 
-def _format_update_signal_description(
-    tool_call: ToolCall, _state: AgentState, _runtime: Runtime
-) -> str:
+def _format_update_signal_description(tool_call: ToolCall, _state: AgentState, _runtime: Runtime) -> str:
     """Format update_trading_signal tool call for HITL approval prompt."""
     args = tool_call.get("args", {})
     signal_id = args.get("signal_id", "Unknown")

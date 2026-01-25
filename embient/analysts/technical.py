@@ -1,8 +1,8 @@
 """Technical analyst subagent definition."""
 
+from deepanalysts import SubAgent
 from langchain_core.language_models import BaseChatModel
 
-from embient.middleware import SubAgent
 from embient.trading_tools import (
     get_candles_around_date,
     get_indicator,

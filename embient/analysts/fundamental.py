@@ -1,8 +1,7 @@
 """Fundamental analyst subagent definition."""
 
+from deepanalysts import SubAgent
 from langchain_core.language_models import BaseChatModel
-
-from embient.middleware import SubAgent
 
 FUNDAMENTAL_ANALYST_PROMPT = """# Fundamental Analyst
 
