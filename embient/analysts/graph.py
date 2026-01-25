@@ -10,6 +10,7 @@ from typing import Any
 from deepanalysts.middleware import (
     FilesystemMiddleware,
     MemoryMiddleware,
+    PatchToolCallsMiddleware,
     SkillsMiddleware,
     SubAgentMiddleware,
     ToolErrorHandlingMiddleware,
@@ -96,8 +97,9 @@ def create_deep_analysts(
     4. SkillsMiddleware - Trading workflows (if configured)
     5. FilesystemMiddleware - Context management
     6. SubAgentMiddleware - Analyst delegation
+    7. PatchToolCallsMiddleware - Handle dangling tool calls
 
-    Subagents receive: ToolErrorHandlingMiddleware, SkillsMiddleware*, FilesystemMiddleware
+    Subagents receive: ToolErrorHandlingMiddleware, SkillsMiddleware*, FilesystemMiddleware, PatchToolCallsMiddleware
 
     Args:
         model: The model to use for the orchestrator and subagents.
@@ -153,7 +155,8 @@ def create_deep_analysts(
         """Create middleware stack for a specific subagent.
 
         ToolErrorHandlingMiddleware is first to catch all tool errors before other
-        middleware processes them.
+        middleware processes them. PatchToolCallsMiddleware is last to handle
+        dangling tool calls from interruptions.
         """
         subagent_middleware: list[AgentMiddleware] = [
             ToolErrorHandlingMiddleware(),  # First: catch all tool errors
@@ -162,7 +165,10 @@ def create_deep_analysts(
         if skills:
             subagent_middleware.append(SkillsMiddleware(sources=skills))
 
-        subagent_middleware.append(FilesystemMiddleware())
+        subagent_middleware.extend([
+            FilesystemMiddleware(),
+            PatchToolCallsMiddleware(),  # Last: handle dangling tool calls
+        ])
         return subagent_middleware
 
     # Build orchestrator middleware stack
@@ -186,6 +192,7 @@ def create_deep_analysts(
                 default_middleware_factory=get_subagent_middleware,
                 subagents=subagents,
             ),
+            PatchToolCallsMiddleware(),  # Handle dangling tool calls from interruptions
         ]
     )
 
