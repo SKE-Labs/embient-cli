@@ -24,7 +24,7 @@ from embient._version import __version__
 
 # Now safe to import agent (which imports LangChain modules)
 from embient.agent import create_cli_agent, list_agents, reset_agent
-from embient.auth import login_command, logout_command, status_command
+from embient.auth import get_cli_token, is_authenticated, login_command, logout_command, status_command
 
 # CRITICAL: Import config FIRST to set LANGSMITH_PROJECT before LangChain loads
 from embient.config import (
@@ -32,6 +32,7 @@ from embient.config import (
     create_model,
     settings,
 )
+from embient.context import set_auth_token
 from embient.integrations.sandbox_factory import create_sandbox
 from embient.sessions import (
     delete_thread_command,
@@ -329,7 +330,20 @@ def cli_main() -> None:
             else:
                 console.print("[yellow]Usage: embient threads <list|delete>[/yellow]")
         else:
-            # Interactive mode - handle thread resume
+            # Interactive mode - check auth for trading mode
+            mode = getattr(args, "mode", "code")
+            if mode == "trading":
+                if not is_authenticated():
+                    console.print("[yellow]Not authenticated.[/yellow]")
+                    console.print("[dim]Trading mode requires authentication. Run 'embient login' first.[/dim]")
+                    sys.exit(1)
+                else:
+                    # Set auth token in context for tools
+                    cli_token = get_cli_token()
+                    if cli_token:
+                        set_auth_token(cli_token)
+
+            # Handle thread resume
             thread_id = None
             is_resumed = False
 

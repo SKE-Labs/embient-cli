@@ -8,9 +8,9 @@ Manages interactions with the Basement API for:
 
 Usage:
     from embient.clients import basement_client
-    from embient.auth import get_jwt_token
+    from embient.auth import get_cli_token
 
-    token = get_jwt_token()
+    token = get_cli_token()
     signals = await basement_client.get_trading_signals(token)
 """
 
@@ -19,6 +19,15 @@ import logging
 import httpx
 
 logger = logging.getLogger(__name__)
+
+
+class AuthenticationError(Exception):
+    """Raised when CLI session is invalid or expired.
+
+    The user should run `embient login` to re-authenticate.
+    """
+
+    pass
 
 # Static Basement API URL
 BASEMENT_API_URL = "https://basement.embient.ai"
@@ -91,6 +100,10 @@ class BasementClient:
                     if isinstance(result, dict):
                         return result.get("signals", [])
                     return None
+                if response.status_code in (401, 403):
+                    raise AuthenticationError(
+                        "Session expired or invalid. Run 'embient login' to re-authenticate."
+                    )
                 logger.error(
                     f"Failed to get trading signals: {response.status_code} - {response.text}"
                 )
@@ -99,6 +112,8 @@ class BasementClient:
         except httpx.TimeoutException:
             logger.error("Timeout while fetching trading signals")
             return None
+        except AuthenticationError:
+            raise
         except Exception as e:
             logger.error(f"Error fetching trading signals: {e}")
             return None
@@ -197,6 +212,10 @@ class BasementClient:
                     data = response.json()
                     logger.info(f"Created trading signal for {symbol}")
                     return data.get("response")
+                if response.status_code in (401, 403):
+                    raise AuthenticationError(
+                        "Session expired or invalid. Run 'embient login' to re-authenticate."
+                    )
                 logger.error(
                     f"Failed to create signal: {response.status_code} - {response.text}"
                 )
@@ -205,6 +224,8 @@ class BasementClient:
         except httpx.TimeoutException:
             logger.error("Timeout while creating trading signal")
             return None
+        except AuthenticationError:
+            raise
         except Exception as e:
             logger.error(f"Error creating trading signal: {e}")
             return None
@@ -294,6 +315,10 @@ class BasementClient:
                     data = response.json()
                     logger.info(f"Updated trading signal ID {signal_id}")
                     return data.get("response")
+                if response.status_code in (401, 403):
+                    raise AuthenticationError(
+                        "Session expired or invalid. Run 'embient login' to re-authenticate."
+                    )
                 logger.error(
                     f"Failed to update signal: {response.status_code} - {response.text}"
                 )
@@ -302,6 +327,8 @@ class BasementClient:
         except httpx.TimeoutException:
             logger.error("Timeout while updating trading signal")
             return None
+        except AuthenticationError:
+            raise
         except Exception as e:
             logger.error(f"Error updating trading signal: {e}")
             return None
@@ -335,6 +362,10 @@ class BasementClient:
                 if response.status_code == 200:
                     data = response.json()
                     return data.get("response", {})
+                if response.status_code in (401, 403):
+                    raise AuthenticationError(
+                        "Session expired or invalid. Run 'embient login' to re-authenticate."
+                    )
                 logger.error(
                     f"Failed to fetch profile: {response.status_code} - {response.text}"
                 )
@@ -343,6 +374,8 @@ class BasementClient:
         except httpx.TimeoutException:
             logger.error("Timeout while fetching user profile")
             return None
+        except AuthenticationError:
+            raise
         except Exception as e:
             logger.error(f"Error fetching user profile: {e}")
             return None
@@ -389,6 +422,10 @@ class BasementClient:
                 if response.status_code == 200:
                     data = response.json()
                     return data.get("response", [])
+                if response.status_code in (401, 403):
+                    raise AuthenticationError(
+                        "Session expired or invalid. Run 'embient login' to re-authenticate."
+                    )
                 logger.error(
                     f"Failed to fetch candles: {response.status_code} - {response.text}"
                 )
@@ -397,6 +434,8 @@ class BasementClient:
         except httpx.TimeoutException:
             logger.error("Timeout while fetching candles")
             return None
+        except AuthenticationError:
+            raise
         except Exception as e:
             logger.error(f"Error fetching candles: {e}")
             return None
@@ -466,6 +505,10 @@ class BasementClient:
                 if response.status_code == 200:
                     data = response.json()
                     return data.get("response", {})
+                if response.status_code in (401, 403):
+                    raise AuthenticationError(
+                        "Session expired or invalid. Run 'embient login' to re-authenticate."
+                    )
                 logger.error(
                     f"Failed to fetch indicator: {response.status_code} - {response.text}"
                 )
@@ -474,6 +517,8 @@ class BasementClient:
         except httpx.TimeoutException:
             logger.error("Timeout while fetching indicator")
             return None
+        except AuthenticationError:
+            raise
         except Exception as e:
             logger.error(f"Error fetching indicator: {e}")
             return None
@@ -501,6 +546,10 @@ class BasementClient:
                 if response.status_code == 200:
                     data = response.json()
                     return data.get("response", [])
+                if response.status_code in (401, 403):
+                    raise AuthenticationError(
+                        "Session expired or invalid. Run 'embient login' to re-authenticate."
+                    )
                 logger.error(
                     f"Failed to get memories: {response.status_code} - {response.text}"
                 )
@@ -509,6 +558,8 @@ class BasementClient:
         except httpx.TimeoutException:
             logger.error("Timeout while fetching memories")
             return []
+        except AuthenticationError:
+            raise
         except Exception as e:
             logger.error(f"Error fetching memories: {e}")
             return []
@@ -539,6 +590,10 @@ class BasementClient:
                 if response.status_code == 200:
                     data = response.json()
                     return data.get("response", [])
+                if response.status_code in (401, 403):
+                    raise AuthenticationError(
+                        "Session expired or invalid. Run 'embient login' to re-authenticate."
+                    )
                 logger.error(
                     f"Failed to get skills: {response.status_code} - {response.text}"
                 )
@@ -547,6 +602,8 @@ class BasementClient:
         except httpx.TimeoutException:
             logger.error("Timeout while fetching skills")
             return []
+        except AuthenticationError:
+            raise
         except Exception as e:
             logger.error(f"Error fetching skills: {e}")
             return []

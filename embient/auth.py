@@ -1,7 +1,7 @@
 """Authentication module for Embient CLI.
 
-Provides Claude Code-style authentication with browser-based OAuth flow
-and secure local credential storage.
+Provides Supabase CLI-style authentication with browser-based login
+and manual token entry. Uses server-managed CLI session tokens.
 
 Usage:
     # Login
@@ -16,25 +16,20 @@ Usage:
 
 import json
 import os
-import secrets
 import sys
-import threading
 import webbrowser
 from dataclasses import dataclass
-from datetime import UTC, datetime
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlencode, urlparse
 
+import httpx
 from rich.console import Console
+from rich.prompt import Prompt
 
 console = Console()
 
-# Default Basement API URL
+# Default URLs
+DEFAULT_FRONTEND_URL = "https://embient.ai"
 DEFAULT_BASEMENT_API = "https://basement.embient.ai"
-
-# Local callback server port
-CALLBACK_PORT = 8787
 
 
 def get_embient_dir() -> Path:
@@ -51,20 +46,20 @@ def get_credentials_path() -> Path:
 
 @dataclass
 class Credentials:
-    """Stored authentication credentials."""
+    """Stored authentication credentials.
 
-    jwt_token: str
-    refresh_token: str | None
-    expires_at: str | None  # ISO format
+    Uses CLI session tokens (managed by server) instead of Supabase JWTs.
+    Sessions last 30 days and can be revoked from the web dashboard.
+    """
+
+    cli_token: str  # Server-managed CLI session token
     user_id: str | None
     email: str | None
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON storage."""
         return {
-            "jwt_token": self.jwt_token,
-            "refresh_token": self.refresh_token,
-            "expires_at": self.expires_at,
+            "cli_token": self.cli_token,
             "user_id": self.user_id,
             "email": self.email,
         }
@@ -73,22 +68,10 @@ class Credentials:
     def from_dict(cls, data: dict) -> "Credentials":
         """Create from dictionary."""
         return cls(
-            jwt_token=data.get("jwt_token", ""),
-            refresh_token=data.get("refresh_token"),
-            expires_at=data.get("expires_at"),
+            cli_token=data.get("cli_token", ""),
             user_id=data.get("user_id"),
             email=data.get("email"),
         )
-
-    def is_expired(self) -> bool:
-        """Check if the token is expired."""
-        if not self.expires_at:
-            return False
-        try:
-            expires = datetime.fromisoformat(self.expires_at.replace("Z", "+00:00"))
-            return datetime.now(UTC) >= expires
-        except (ValueError, TypeError):
-            return False
 
 
 def save_credentials(credentials: Credentials) -> None:
@@ -123,7 +106,7 @@ def load_credentials() -> Credentials | None:
         data = json.loads(creds_path.read_text())
         credentials = Credentials.from_dict(data)
         # Check if token exists
-        if not credentials.jwt_token:
+        if not credentials.cli_token:
             return None
         return credentials
     except (json.JSONDecodeError, KeyError, TypeError):
@@ -144,178 +127,75 @@ def clear_credentials() -> bool:
 
 
 def is_authenticated() -> bool:
-    """Check if user is authenticated with valid, non-expired credentials.
+    """Check if user is authenticated with valid credentials.
+
+    Note: Server-managed sessions don't expire locally. The server will
+    return 401 if the session is invalid/expired.
 
     Returns:
         True if authenticated with valid token, False otherwise
     """
     credentials = load_credentials()
-    if not credentials:
-        return False
-    if credentials.is_expired():
-        return False
-    return True
+    return credentials is not None and bool(credentials.cli_token)
 
 
-def get_jwt_token() -> str | None:
-    """Get the stored JWT token if authenticated.
+def get_cli_token() -> str | None:
+    """Get the stored CLI session token if authenticated.
 
     Returns:
-        JWT token string if authenticated, None otherwise
+        CLI token string if authenticated, None otherwise
     """
     credentials = load_credentials()
-    if not credentials or credentials.is_expired():
+    if not credentials:
         return None
-    return credentials.jwt_token
+    return credentials.cli_token
 
 
-class CallbackHandler(BaseHTTPRequestHandler):
-    """HTTP handler for OAuth callback."""
-
-    credentials: Credentials | None = None
-    error: str | None = None
-
-    def log_message(self, format: str, *args) -> None:
-        """Suppress default logging."""
-
-    def do_GET(self) -> None:
-        """Handle GET request from OAuth callback."""
-        parsed = urlparse(self.path)
-
-        if parsed.path == "/callback":
-            params = parse_qs(parsed.query)
-
-            # Check for error
-            if "error" in params:
-                CallbackHandler.error = params.get("error_description", ["Unknown error"])[0]
-                self._send_response("Authentication failed. You can close this window.")
-                return
-
-            # Extract tokens
-            access_token = params.get("access_token", [None])[0]
-            refresh_token = params.get("refresh_token", [None])[0]
-            expires_in = params.get("expires_in", [None])[0]
-            user_id = params.get("user_id", [None])[0]
-            email = params.get("email", [None])[0]
-
-            if not access_token:
-                CallbackHandler.error = "No access token received"
-                self._send_response("Authentication failed. You can close this window.")
-                return
-
-            # Calculate expiry
-            expires_at = None
-            if expires_in:
-                try:
-                    expires_at = (
-                        datetime.now(UTC)
-                        .replace(microsecond=0)
-                        .isoformat()
-                        .replace("+00:00", "Z")
-                    )
-                    # Add seconds to current time
-                    from datetime import timedelta
-
-                    expires_at = (
-                        (datetime.now(UTC) + timedelta(seconds=int(expires_in)))
-                        .replace(microsecond=0)
-                        .isoformat()
-                        .replace("+00:00", "Z")
-                    )
-                except (ValueError, TypeError):
-                    pass
-
-            CallbackHandler.credentials = Credentials(
-                jwt_token=access_token,
-                refresh_token=refresh_token,
-                expires_at=expires_at,
-                user_id=user_id,
-                email=email,
-            )
-            self._send_response(
-                "Authentication successful! You can close this window and return to the terminal."
-            )
-        else:
-            self.send_error(404)
-
-    def _send_response(self, message: str) -> None:
-        """Send HTML response."""
-        html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Embient CLI Authentication</title>
-            <style>
-                body {{
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    height: 100vh;
-                    margin: 0;
-                    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-                    color: #eee;
-                }}
-                .container {{
-                    text-align: center;
-                    padding: 2rem;
-                    background: rgba(255, 255, 255, 0.1);
-                    border-radius: 12px;
-                    backdrop-filter: blur(10px);
-                }}
-                h1 {{ color: #10b981; margin-bottom: 1rem; }}
-                p {{ color: #ccc; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>Embient</h1>
-                <p>{message}</p>
-            </div>
-        </body>
-        </html>
-        """
-        self.send_response(200)
-        self.send_header("Content-type", "text/html")
-        self.end_headers()
-        self.wfile.write(html.encode())
+# Keep get_jwt_token as an alias for backwards compatibility
+get_jwt_token = get_cli_token
 
 
-def login_interactive(basement_api: str | None = None) -> bool:
-    """Perform interactive browser-based login.
-
-    Opens browser to Basement auth URL and starts local callback server.
+def validate_token(token: str) -> bool:
+    """Validate a CLI token by making a test request to the API.
 
     Args:
-        basement_api: Optional Basement API URL override
+        token: The CLI token to validate
+
+    Returns:
+        True if valid, False otherwise
+    """
+    basement_api = os.environ.get("BASEMENT_API", DEFAULT_BASEMENT_API)
+
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.get(
+                f"{basement_api}/api/v1/profiles/me",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            if response.status_code == 200:
+                return True
+            console.print(f"[dim]Server returned {response.status_code}[/dim]")
+            return False
+    except Exception as e:
+        console.print(f"[dim]Validation error: {e}[/dim]")
+        return False
+
+
+def login_interactive(frontend_url: str | None = None) -> bool:
+    """Perform interactive browser-based login.
+
+    Opens browser to frontend auth URL and prompts user to paste the token.
+
+    Args:
+        frontend_url: Optional frontend URL override
 
     Returns:
         True if login successful, False otherwise
     """
-    api_url = basement_api or os.environ.get("BASEMENT_API", DEFAULT_BASEMENT_API)
+    base_url = frontend_url or os.environ.get("EMBIENT_FRONTEND_URL", DEFAULT_FRONTEND_URL)
 
-    # Generate state for CSRF protection
-    state = secrets.token_urlsafe(32)
-
-    # Build auth URL
-    callback_url = f"http://localhost:{CALLBACK_PORT}/callback"
-    auth_params = {
-        "redirect_uri": callback_url,
-        "state": state,
-        "response_type": "token",
-        "client_id": "embient-cli",
-    }
-    auth_url = f"{api_url}/auth/cli?{urlencode(auth_params)}"
-
-    # Reset handler state
-    CallbackHandler.credentials = None
-    CallbackHandler.error = None
-
-    # Start callback server in background thread
-    server = HTTPServer(("localhost", CALLBACK_PORT), CallbackHandler)
-    server_thread = threading.Thread(target=server.handle_request)
-    server_thread.daemon = True
-    server_thread.start()
+    # Build auth URL - pointing to frontend CLI auth page
+    auth_url = f"{base_url}/auth/cli"
 
     console.print("\n[bold]Opening browser for authentication...[/bold]")
     console.print(f"[dim]If browser doesn't open, visit:[/dim]\n{auth_url}\n")
@@ -327,51 +207,79 @@ def login_interactive(basement_api: str | None = None) -> bool:
         console.print("[yellow]Could not open browser automatically.[/yellow]")
         console.print(f"Please open this URL manually:\n{auth_url}")
 
-    console.print("[dim]Waiting for authentication...[/dim]")
+    console.print()
+    console.print("[bold]After signing in, copy the verification code from the browser.[/bold]")
+    console.print()
 
-    # Wait for callback (with timeout)
-    server_thread.join(timeout=300)  # 5 minute timeout
+    # Prompt for token
+    token = Prompt.ask("Enter verification code")
 
-    # Shutdown server
-    server.server_close()
-
-    # Check results
-    if CallbackHandler.error:
-        console.print(f"\n[red]Authentication failed:[/red] {CallbackHandler.error}")
+    if not token or not token.strip():
+        console.print("\n[red]No token provided.[/red]")
         return False
 
-    if not CallbackHandler.credentials:
-        console.print("\n[red]Authentication timed out or was cancelled.[/red]")
+    token = token.strip()
+
+    # Validate the token
+    console.print("\n[dim]Validating token...[/dim]")
+
+    if not validate_token(token):
+        console.print("\n[red]Invalid or expired token.[/red]")
+        console.print("[dim]Please try again with a valid token.[/dim]")
         return False
 
     # Save credentials
-    save_credentials(CallbackHandler.credentials)
+    credentials = Credentials(
+        cli_token=token,
+        user_id=None,  # We don't have this from the token entry flow
+        email=None,
+    )
+    save_credentials(credentials)
 
     console.print("\n[green]Successfully authenticated![/green]")
-    if CallbackHandler.credentials.email:
-        console.print(f"[dim]Logged in as:[/dim] {CallbackHandler.credentials.email}")
 
     return True
 
 
 def login_with_token(token: str) -> bool:
-    """Login with a provided JWT token (for automation/testing).
+    """Login with a provided CLI token (for automation/testing).
 
     Args:
-        token: JWT token to use
+        token: CLI session token to use
 
     Returns:
         True if token was saved successfully
     """
     credentials = Credentials(
-        jwt_token=token,
-        refresh_token=None,
-        expires_at=None,
+        cli_token=token,
         user_id=None,
         email=None,
     )
     save_credentials(credentials)
     return True
+
+
+async def revoke_session(cli_token: str) -> bool:
+    """Revoke the CLI session on the server.
+
+    Args:
+        cli_token: The CLI token to revoke
+
+    Returns:
+        True if revoked successfully, False otherwise
+    """
+    basement_api = os.environ.get("BASEMENT_API", DEFAULT_BASEMENT_API)
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.delete(
+                f"{basement_api}/api/v1/auth/cli-session",
+                headers={"Authorization": f"Bearer {cli_token}"},
+            )
+            return response.status_code == 200
+    except Exception as e:
+        console.print(f"[yellow]Warning: Could not revoke server session: {e}[/yellow]")
+        return False
 
 
 async def login_command() -> None:
@@ -390,7 +298,18 @@ async def login_command() -> None:
 
 
 async def logout_command() -> None:
-    """CLI handler for: embient logout."""
+    """CLI handler for: embient logout.
+
+    Clears local credentials and revokes the server session.
+    """
+    credentials = load_credentials()
+
+    # Revoke server session if we have a token
+    if credentials and credentials.cli_token:
+        console.print("[dim]Revoking server session...[/dim]")
+        await revoke_session(credentials.cli_token)
+
+    # Clear local credentials
     if clear_credentials():
         console.print("[green]Successfully logged out.[/green]")
     else:
@@ -406,15 +325,9 @@ async def status_command() -> None:
         console.print("[dim]Run 'embient login' to authenticate.[/dim]")
         return
 
-    if credentials.is_expired():
-        console.print("[yellow]Authentication expired[/yellow]")
-        console.print("[dim]Run 'embient login' to re-authenticate.[/dim]")
-        return
-
     console.print("[green]Authenticated[/green]")
     if credentials.email:
         console.print(f"[dim]Email:[/dim] {credentials.email}")
     if credentials.user_id:
         console.print(f"[dim]User ID:[/dim] {credentials.user_id}")
-    if credentials.expires_at:
-        console.print(f"[dim]Expires:[/dim] {credentials.expires_at}")
+    console.print("[dim]Session:[/dim] CLI token (server-managed)")

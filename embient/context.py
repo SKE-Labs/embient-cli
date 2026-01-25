@@ -5,22 +5,22 @@ that needs to be accessible from tools and middleware during agent execution.
 
 Usage:
     # At CLI startup (e.g., main.py)
-    from embient.context import set_jwt_token, set_thread_id, set_user_profile
+    from embient.context import set_auth_token, set_thread_id, set_user_profile
 
-    set_jwt_token(jwt_token)
+    set_auth_token(cli_token)
     set_thread_id(thread_id)
     set_user_profile(user_profile)
 
     # In tools/middleware
-    from embient.context import get_jwt_token, get_thread_id, get_user_profile
+    from embient.context import get_auth_token, get_thread_id, get_user_profile
 
-    jwt_token = get_jwt_token()
+    auth_token = get_auth_token()
 """
 
 from contextvars import ContextVar
 
-# JWT token for authenticated API calls
-_jwt_token_context: ContextVar[str | None] = ContextVar("jwt_token", default=None)
+# Auth token for authenticated API calls (CLI session token)
+_auth_token_context: ContextVar[str | None] = ContextVar("auth_token", default=None)
 
 # Thread ID for conversation tracking
 _thread_id_context: ContextVar[str | None] = ContextVar("thread_id", default=None)
@@ -42,15 +42,20 @@ _invalid_condition_images_context: ContextVar[list | None] = ContextVar(
 _screenshots_context: ContextVar[list | None] = ContextVar("screenshots", default=None)
 
 
-# JWT Token
-def set_jwt_token(token: str) -> None:
-    """Set the JWT token for the current session context."""
-    _jwt_token_context.set(token)
+# Auth Token (CLI session token)
+def set_auth_token(token: str) -> None:
+    """Set the auth token for the current session context."""
+    _auth_token_context.set(token)
 
 
-def get_jwt_token() -> str | None:
-    """Get the JWT token from the current session context."""
-    return _jwt_token_context.get()
+def get_auth_token() -> str | None:
+    """Get the auth token from the current session context."""
+    return _auth_token_context.get()
+
+
+# Backwards compatibility aliases
+set_jwt_token = set_auth_token
+get_jwt_token = get_auth_token
 
 
 # Thread ID
@@ -114,14 +119,16 @@ def get_screenshots() -> list | None:
 
 __all__ = [
     # Setters (for CLI startup)
-    "set_jwt_token",
+    "set_auth_token",
+    "set_jwt_token",  # Backwards compatibility
     "set_thread_id",
     "set_user_profile",
     "set_entry_plan_images",
     "set_invalid_condition_images",
     "set_screenshots",
     # Getters (for tools/middleware)
-    "get_jwt_token",
+    "get_auth_token",
+    "get_jwt_token",  # Backwards compatibility
     "get_thread_id",
     "get_user_profile",
     "get_entry_plan_images",
