@@ -7,14 +7,15 @@ cloud (park) or local (embient-cli) usage.
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, Protocol, runtime_checkable
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
-# Default API endpoint
-DEFAULT_BASEMENT_API = "https://basement.embient.ai"
+# Default API endpoint (can be overridden via BASEMENT_API env var)
+DEFAULT_BASEMENT_API = os.environ.get("BASEMENT_API", "https://basement.embient.ai")
 
 
 @runtime_checkable
