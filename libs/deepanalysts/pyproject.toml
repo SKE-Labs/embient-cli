@@ -1,6 +1,6 @@
 [project]
 name = "deepanalysts"
-version = "0.1.0"
+version = "0.1.1"
 description = "LangChain/LangGraph middleware for building AI agents with memory, skills, and filesystem support"
 readme = "README.md"
 license = { text = "MIT" }
@@ -40,6 +40,7 @@ dev = [
     "pytest>=8.0.0",
     "pytest-anyio>=0.0.0",
     "anyio>=4.0.0",
+    "ruff>=0.8.0",
 ]
 
 [build-system]

@@ -94,7 +94,9 @@ class BasementClient:
                 response = await client.get(url, headers=headers)
                 response.raise_for_status()
                 data = response.json()
-                return data.get("memories", data) if isinstance(data, dict) else data
+                if isinstance(data, dict):
+                    return data.get("response", data.get("memories", []))
+                return data
         except httpx.HTTPError as e:
             logger.error(f"Failed to fetch memories: {e}")
             return []
@@ -117,7 +119,10 @@ class BasementClient:
                 response = await client.get(url, headers=headers)
                 response.raise_for_status()
                 data = response.json()
-                return data.get("skills", data) if isinstance(data, dict) else data
+                # API returns {"response": [...]} format
+                if isinstance(data, dict):
+                    return data.get("response", data.get("skills", []))
+                return data
         except httpx.HTTPError as e:
             logger.error(f"Failed to fetch skills: {e}")
             return []

@@ -28,6 +28,7 @@ from deepanalysts.backends.protocol import (
 )
 from deepanalysts.backends.store import StoreBackend
 from deepanalysts.backends.utils import (
+    create_content_preview,
     format_content_with_line_numbers,
     format_grep_matches,
     sanitize_tool_call_id,
@@ -39,6 +40,11 @@ MAX_LINE_LENGTH = 2000
 LINE_NUMBER_WIDTH = 6
 DEFAULT_READ_OFFSET = 0
 DEFAULT_READ_LIMIT = 500
+
+# Approximate number of characters per token for truncation calculations.
+# Using 4 chars per token as a conservative approximation (actual ratio varies by content)
+# This errs on the high side to avoid premature eviction of content that might fit
+NUM_CHARS_PER_TOKEN = 4
 
 
 class FileData(TypedDict):
@@ -278,8 +284,18 @@ def _ls_tool_generator(
 def _read_file_tool_generator(
     backend: BackendProtocol | Callable[[ToolRuntime], BackendProtocol],
     custom_description: str | None = None,
+    token_limit_before_truncation: int | None = None,
 ) -> BaseTool:
-    """Generate the read_file tool."""
+    """Generate the read_file tool.
+
+    Args:
+        backend: Backend to use for file storage, or a factory function that takes runtime and returns a backend.
+        custom_description: Optional custom description for the tool.
+        token_limit_before_truncation: Optional token limit before truncating output.
+
+    Returns:
+        Configured read_file tool that reads files using the backend.
+    """
     tool_description = custom_description or READ_FILE_TOOL_DESCRIPTION
 
     def sync_read_file(
@@ -291,7 +307,26 @@ def _read_file_tool_generator(
         """Synchronous wrapper for read_file tool."""
         resolved_backend = _get_backend(backend, runtime)
         file_path = _validate_path(file_path)
-        return resolved_backend.read(file_path, offset=offset, limit=limit)
+        result = resolved_backend.read(file_path, offset=offset, limit=limit)
+
+        lines = result.splitlines(keepends=True)
+        if len(lines) > limit:
+            lines = lines[:limit]
+            result = "".join(lines)
+
+        # Check if result exceeds token threshold and truncate if necessary
+        if token_limit_before_truncation and len(result) >= NUM_CHARS_PER_TOKEN * token_limit_before_truncation:
+            truncate_threshold = NUM_CHARS_PER_TOKEN * token_limit_before_truncation
+            result = result[:truncate_threshold]
+            result += (
+                f"\n\n[Output was truncated due to size limits. "
+                f"The file content is very large. "
+                f"Consider reformatting the file to make it easier to navigate. "
+                f"For example, if this is JSON, use execute(command='jq . {file_path}') to pretty-print it with line breaks. "
+                f"For other formats, you can use appropriate formatting tools to split long lines.]"
+            )
+
+        return result
 
     async def async_read_file(
         file_path: str,
@@ -302,7 +337,26 @@ def _read_file_tool_generator(
         """Asynchronous wrapper for read_file tool."""
         resolved_backend = _get_backend(backend, runtime)
         file_path = _validate_path(file_path)
-        return await resolved_backend.aread(file_path, offset=offset, limit=limit)
+        result = await resolved_backend.aread(file_path, offset=offset, limit=limit)
+
+        lines = result.splitlines(keepends=True)
+        if len(lines) > limit:
+            lines = lines[:limit]
+            result = "".join(lines)
+
+        # Check if result exceeds token threshold and truncate if necessary
+        if token_limit_before_truncation and len(result) >= NUM_CHARS_PER_TOKEN * token_limit_before_truncation:
+            truncate_threshold = NUM_CHARS_PER_TOKEN * token_limit_before_truncation
+            result = result[:truncate_threshold]
+            result += (
+                f"\n\n[Output was truncated due to size limits. "
+                f"The file content is very large. "
+                f"Consider reformatting the file to make it easier to navigate. "
+                f"For example, if this is JSON, use execute(command='jq . {file_path}') to pretty-print it with line breaks. "
+                f"For other formats, you can use appropriate formatting tools to split long lines.]"
+            )
+
+        return result
 
     return StructuredTool.from_function(
         name="read_file",
@@ -618,14 +672,32 @@ TOOL_GENERATORS = {
 def _get_filesystem_tools(
     backend: BackendProtocol,
     custom_tool_descriptions: dict[str, str] | None = None,
+    token_limit_before_truncation: int | None = None,
 ) -> list[BaseTool]:
-    """Get filesystem and execution tools."""
+    """Get filesystem and execution tools.
+
+    Args:
+        backend: Backend to use for file storage and optional execution, or a factory function that takes runtime and returns a backend.
+        custom_tool_descriptions: Optional custom descriptions for tools.
+        token_limit_before_truncation: Optional token limit before truncating read_file output.
+
+    Returns:
+        List of configured tools: ls, read_file, write_file, edit_file, glob, grep, execute.
+    """
     if custom_tool_descriptions is None:
         custom_tool_descriptions = {}
     tools = []
 
     for tool_name, tool_generator in TOOL_GENERATORS.items():
-        tool = tool_generator(backend, custom_tool_descriptions.get(tool_name))
+        # Pass token_limit_before_truncation to read_file generator
+        if tool_name == "read_file":
+            tool = tool_generator(
+                backend,
+                custom_tool_descriptions.get(tool_name),
+                token_limit_before_truncation,
+            )
+        else:
+            tool = tool_generator(backend, custom_tool_descriptions.get(tool_name))
         tools.append(tool)
     return tools
 
@@ -635,7 +707,9 @@ You can read the result from the filesystem by using the read_file tool, but mak
 You can do this by specifying an offset and limit in the read_file tool call.
 For example, to read the first 100 lines, you can use the read_file tool with offset=0 and limit=100.
 
-Here are the first 10 lines of the result:
+Here is a preview of the result (showing first and last lines, with `... [N lines truncated] ...` to
+indicate omitted lines in the middle of the content):
+
 {content_sample}
 """
 
@@ -673,7 +747,11 @@ class FilesystemMiddleware(AgentMiddleware):
         self.tool_token_limit_before_evict = tool_token_limit_before_evict
         self.backend = backend if backend is not None else (lambda rt: StoreBackend(rt))
         self._custom_system_prompt = system_prompt
-        self.tools = _get_filesystem_tools(self.backend, custom_tool_descriptions)
+        self.tools = _get_filesystem_tools(
+            self.backend,
+            custom_tool_descriptions,
+            tool_token_limit_before_evict,
+        )
 
     def _get_backend(self, runtime: ToolRuntime) -> BackendProtocol:
         """Get the resolved backend instance from backend or factory."""
@@ -781,9 +859,8 @@ class FilesystemMiddleware(AgentMiddleware):
         result = resolved_backend.write(file_path, content)
         if result.error:
             return message, None
-        content_sample = format_content_with_line_numbers(
-            [line[:1000] for line in content.splitlines()[:10]], start_line=1
-        )
+        # Use smart preview showing head and tail instead of just first lines
+        content_sample = create_content_preview(content)
         processed_message = ToolMessage(
             TOO_LARGE_TOOL_MSG.format(
                 tool_call_id=message.tool_call_id,
@@ -867,9 +944,8 @@ class FilesystemMiddleware(AgentMiddleware):
         result = await resolved_backend.awrite(file_path, content)
         if result.error:
             return message, None
-        content_sample = format_content_with_line_numbers(
-            [line[:1000] for line in content.splitlines()[:10]], start_line=1
-        )
+        # Use smart preview showing head and tail instead of just first lines
+        content_sample = create_content_preview(content)
         processed_message = ToolMessage(
             TOO_LARGE_TOOL_MSG.format(
                 tool_call_id=message.tool_call_id,

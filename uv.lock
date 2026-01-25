@@ -648,7 +648,7 @@ wheels = [
 [[package]]
 name = "deepanalysts"
 version = "0.1.0"
-source = { editable = "libs/deepanalysts" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
     { name = "langchain" },
@@ -657,22 +657,10 @@ dependencies = [
     { name = "tenacity" },
     { name = "wcmatch" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "anyio", marker = "extra == 'dev'", specifier = ">=4.0.0" },
-    { name = "httpx", specifier = ">=0.28.0" },
-    { name = "langchain", specifier = ">=1.2.3,<2.0.0" },
-    { name = "langgraph", specifier = ">=0.2.0" },
-    { name = "langgraph-checkpoint-postgres", marker = "extra == 'postgres'", specifier = ">=2.0.0" },
-    { name = "psycopg", extras = ["binary", "pool"], marker = "extra == 'postgres'", specifier = ">=3.2.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
-    { name = "pytest-anyio", marker = "extra == 'dev'", specifier = ">=0.0.0" },
-    { name = "pyyaml", specifier = ">=6.0" },
-    { name = "tenacity", specifier = ">=8.2.0" },
-    { name = "wcmatch", specifier = ">=8.5.0" },
+sdist = { url = "https://files.pythonhosted.org/packages/da/da/642c71a2bee9e7dd192a9ccace33a3ba6820e4fa7456aa48c2f6f1821bf7/deepanalysts-0.1.0.tar.gz", hash = "sha256:7db645f31c788ae3801eac09fef06b71b4bcdea9d1e647ca75bc28ed715269dc", size = 66115, upload-time = "2026-01-25T10:08:17.032Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/65/1f/2608fb35fa5ad62f9c8048333055ebddf6af1528d6714d886f71edf5a7ac/deepanalysts-0.1.0-py3-none-any.whl", hash = "sha256:3bf766388750683a2f00ec9792e4e93c22000283bafede344ffbe5b5bf269dc5", size = 68919, upload-time = "2026-01-25T10:08:15.961Z" },
 ]
-provides-extras = ["postgres", "dev"]
 
 [[package]]
 name = "deprecated"
@@ -756,7 +744,7 @@ test = [
 requires-dist = [
     { name = "aiosqlite", specifier = ">=0.19.0" },
     { name = "daytona", specifier = ">=0.113.0" },
-    { name = "deepanalysts", editable = "libs/deepanalysts" },
+    { name = "deepanalysts", specifier = ">=0.1.0" },
     { name = "httpx", specifier = ">=0.28.0" },
     { name = "langchain", specifier = ">=1.2.3,<2.0.0" },
     { name = "langchain-openai", specifier = ">=1.1.7,<2.0.0" },

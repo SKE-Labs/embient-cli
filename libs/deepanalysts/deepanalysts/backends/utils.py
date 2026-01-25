@@ -453,3 +453,47 @@ def format_grep_matches(
     if not matches:
         return "No matches found"
     return _format_grep_results(build_grep_results_dict(matches), output_mode)
+
+
+def create_content_preview(
+    content_str: str, *, head_lines: int = 5, tail_lines: int = 5
+) -> str:
+    """Create a preview of content showing head and tail with truncation marker.
+
+    This preserves both the beginning and end of the content, which is more useful
+    than just showing the beginning when dealing with large outputs (e.g., seeing
+    the final result or error at the end).
+
+    Args:
+        content_str: The full content string to preview.
+        head_lines: Number of lines to show from the start.
+        tail_lines: Number of lines to show from the end.
+
+    Returns:
+        Formatted preview string with line numbers.
+
+    Example:
+        >>> content = "line1\\nline2\\n...\\nline100"
+        >>> create_content_preview(content, head_lines=2, tail_lines=2)
+        # Shows lines 1-2, then "[96 lines truncated]", then lines 99-100
+    """
+    lines = content_str.splitlines()
+
+    if len(lines) <= head_lines + tail_lines:
+        # If content is small enough, show all lines
+        preview_lines = [line[:1000] for line in lines]
+        return format_content_with_line_numbers(preview_lines, start_line=1)
+
+    # Show head and tail with truncation marker
+    head = [line[:1000] for line in lines[:head_lines]]
+    tail = [line[:1000] for line in lines[-tail_lines:]]
+
+    head_sample = format_content_with_line_numbers(head, start_line=1)
+    truncation_notice = (
+        f"\n... [{len(lines) - head_lines - tail_lines} lines truncated] ...\n"
+    )
+    tail_sample = format_content_with_line_numbers(
+        tail, start_line=len(lines) - tail_lines + 1
+    )
+
+    return head_sample + truncation_notice + tail_sample
