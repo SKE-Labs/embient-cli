@@ -444,19 +444,13 @@ def create_model(model_name_override: str | None = None) -> BaseChatModel:
 
         # Check if API key for detected provider is available
         if provider == "openai" and not settings.has_openai:
-            console.print(
-                f"[bold red]Error:[/bold red] Model '{model_name_override}' requires OPENAI_API_KEY"
-            )
+            console.print(f"[bold red]Error:[/bold red] Model '{model_name_override}' requires OPENAI_API_KEY")
             sys.exit(1)
         elif provider == "anthropic" and not settings.has_anthropic:
-            console.print(
-                f"[bold red]Error:[/bold red] Model '{model_name_override}' requires ANTHROPIC_API_KEY"
-            )
+            console.print(f"[bold red]Error:[/bold red] Model '{model_name_override}' requires ANTHROPIC_API_KEY")
             sys.exit(1)
         elif provider == "google" and not settings.has_google:
-            console.print(
-                f"[bold red]Error:[/bold red] Model '{model_name_override}' requires GOOGLE_API_KEY"
-            )
+            console.print(f"[bold red]Error:[/bold red] Model '{model_name_override}' requires GOOGLE_API_KEY")
             sys.exit(1)
 
         model_name = model_name_override
@@ -469,7 +463,7 @@ def create_model(model_name_override: str | None = None) -> BaseChatModel:
         model_name = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929")
     elif settings.has_google:
         provider = "google"
-        model_name = os.environ.get("GOOGLE_MODEL", "gemini-3-pro-preview")
+        model_name = os.environ.get("GOOGLE_MODEL", "gemini-3-flash-preview")
     else:
         console.print("[bold red]Error:[/bold red] No LLM API key found.")
         console.print()
@@ -547,12 +541,9 @@ def validate_model_capabilities(model: BaseChatModel, model_name: str) -> None:
     # Check required capability: tool_calling
     tool_calling = profile.get("tool_calling")
     if tool_calling is False:
+        console.print(f"[bold red]Error:[/bold red] Model '{model_name}' does not support tool calling.")
         console.print(
-            f"[bold red]Error:[/bold red] Model '{model_name}' does not support tool calling."
-        )
-        console.print(
-            "\nEmbient requires tool calling for agent functionality. "
-            "Please choose a model that supports tool calling."
+            "\nEmbient requires tool calling for agent functionality. Please choose a model that supports tool calling."
         )
         console.print("\nSee MODELS.md for supported models.")
         sys.exit(1)
