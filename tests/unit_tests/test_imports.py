@@ -2,7 +2,7 @@
 
 
 def test_imports() -> None:
-    """Test importing deepagents modules."""
+    """Test importing embient modules."""
     from embient import (
         agent,  # noqa: F401
         integrations,  # noqa: F401

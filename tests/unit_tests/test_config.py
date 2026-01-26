@@ -59,15 +59,15 @@ class TestProjectRootDetection:
 class TestProjectAgentMdFinding:
     """Test finding project-specific AGENTS.md files."""
 
-    def test_find_agent_md_in_deepagents_dir(self, tmp_path: Path) -> None:
-        """Test finding AGENTS.md in .deepagents/ directory."""
+    def test_find_agent_md_in_embient_dir(self, tmp_path: Path) -> None:
+        """Test finding AGENTS.md in .embient/ directory."""
         project_root = tmp_path / "project"
         project_root.mkdir()
 
-        # Create .deepagents/AGENTS.md
-        deepagents_dir = project_root / ".deepagents"
-        deepagents_dir.mkdir()
-        agent_md = deepagents_dir / "AGENTS.md"
+        # Create .embient/AGENTS.md
+        embient_dir = project_root / ".embient"
+        embient_dir.mkdir()
+        agent_md = embient_dir / "AGENTS.md"
         agent_md.write_text("Project instructions")
 
         result = _find_project_agent_md(project_root)
@@ -79,7 +79,7 @@ class TestProjectAgentMdFinding:
         project_root = tmp_path / "project"
         project_root.mkdir()
 
-        # Create root-level AGENTS.md (no .deepagents/)
+        # Create root-level AGENTS.md (no .embient/)
         agent_md = project_root / "AGENTS.md"
         agent_md.write_text("Project instructions")
 
@@ -93,18 +93,18 @@ class TestProjectAgentMdFinding:
         project_root.mkdir()
 
         # Create both locations
-        deepagents_dir = project_root / ".deepagents"
-        deepagents_dir.mkdir()
-        deepagents_md = deepagents_dir / "AGENTS.md"
-        deepagents_md.write_text("In .deepagents/")
+        embient_dir = project_root / ".embient"
+        embient_dir.mkdir()
+        embient_md = embient_dir / "AGENTS.md"
+        embient_md.write_text("In .embient/")
 
         root_md = project_root / "AGENTS.md"
         root_md.write_text("In root")
 
-        # Should return both, with .deepagents/ first
+        # Should return both, with .embient/ first
         result = _find_project_agent_md(project_root)
         assert len(result) == 2
-        assert result[0] == deepagents_md
+        assert result[0] == embient_md
         assert result[1] == root_md
 
     def test_find_agent_md_not_found(self, tmp_path: Path) -> None:

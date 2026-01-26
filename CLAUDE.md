@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working with the embient-cli cod
 
 ## Project Overview
 
-Embient CLI is an AI-powered trading assistant that runs locally while fetching market data from the Basement API (cloud). It combines the deepagents framework with trading-specific tools and a multi-agent orchestration system called "Deep Analysts".
+Embient CLI is an AI-powered trading assistant that runs locally while fetching market data from the Basement API (cloud). It combines trading-specific tools and a multi-agent orchestration system called "Deep Analysts".
 
 **Key Capabilities:**
 - Two modes: `code` (general coding assistant) and `trading` (Deep Analysts)
@@ -44,8 +44,8 @@ uv run ruff format .
 
 The CLI supports two modes selected via `-M/--mode`:
 
-1. **Code Mode** (default): Standard deepagents coding assistant
-   - Uses `create_deep_agent` from deepagents library
+1. **Code Mode** (default): Standard coding assistant
+   - Uses `create_cli_agent` from `embient/agent.py`
    - Full middleware stack (Memory, Skills, Filesystem, Shell)
    - Human-in-the-loop for destructive operations
 
@@ -128,11 +128,10 @@ embient/
 ├── utils/
 │   └── retry.py          # Async retry with exponential backoff
 │
-└── (inherited from deepagents)
-    ├── skills/           # Skills system
-    ├── app.py            # Textual UI application
-    ├── ui.py             # Rich console helpers
-    └── sessions.py       # Thread/session management
+├── skills/           # Skills system
+├── app.py            # Textual UI application
+├── ui.py             # Rich console helpers
+└── sessions.py       # Thread/session management
 ```
 
 ## Key Components
@@ -295,7 +294,7 @@ uv run pytest --cov=embient
 ## Dependencies
 
 Key dependencies (see `pyproject.toml`):
-- `deepagents` - Base agent framework (local path: `../deepagents/libs/deepagents`)
+- `deepanalysts` - Middleware library for agent orchestration (local path: `./libs/deepanalysts`)
 - `langchain`, `langgraph` - LLM orchestration
 - `httpx` - Async HTTP client for Basement API
 - `tenacity` - Retry logic
@@ -304,5 +303,4 @@ Key dependencies (see `pyproject.toml`):
 
 ## Related Repositories
 
-- `deepagents` - Core agent framework (parent directory)
 - `park` - Cloud-based trading platform (reference implementation)

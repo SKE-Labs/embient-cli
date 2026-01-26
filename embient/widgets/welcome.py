@@ -1,4 +1,4 @@
-"""Welcome banner widget for deepagents-cli."""
+"""Welcome banner widget for embient-cli."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import Any
 
 from textual.widgets import Static
 
-from embient.config import DEEP_AGENTS_ASCII, settings
+from embient.config import EMBIENT_ASCII, settings
 
 
 class WelcomeBanner(Static):
@@ -24,7 +24,7 @@ class WelcomeBanner(Static):
     def __init__(self, **kwargs: Any) -> None:
         """Initialize the welcome banner."""
         # Use the same green color as the original UI (#10b981)
-        banner_text = f"[bold #10b981]{DEEP_AGENTS_ASCII}[/bold #10b981]\n"
+        banner_text = f"[bold #10b981]{EMBIENT_ASCII}[/bold #10b981]\n"
 
         # Show LangSmith status if tracing is enabled
         langsmith_key = os.environ.get("LANGSMITH_API_KEY") or os.environ.get("LANGCHAIN_API_KEY")
@@ -34,7 +34,7 @@ class WelcomeBanner(Static):
 
         if langsmith_key and langsmith_tracing:
             project = (
-                settings.deepagents_langchain_project
+                settings.embient_langchain_project
                 or os.environ.get("LANGSMITH_PROJECT")
                 or "default"
             )

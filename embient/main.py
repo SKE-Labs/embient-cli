@@ -87,7 +87,7 @@ def check_cli_dependencies() -> None:
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="DeepAgents - AI Coding Assistant",
+        description="Embient - AI Coding Assistant",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
     )
@@ -294,7 +294,7 @@ def cli_main() -> None:
         os.environ["GRPC_ENABLE_FORK_SUPPORT"] = "0"
 
     # Note: LANGSMITH_PROJECT is already overridden in config.py (before LangChain imports)
-    # This ensures agent traces → DEEPAGENTS_LANGSMITH_PROJECT
+    # This ensures agent traces → EMBIENT_LANGSMITH_PROJECT
     # Shell commands → user's original LANGSMITH_PROJECT (via ShellMiddleware env)
 
     # Check dependencies first

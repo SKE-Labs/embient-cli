@@ -1,4 +1,4 @@
-"""Textual widgets for deepagents-cli."""
+"""Textual widgets for embient-cli."""
 
 from __future__ import annotations
 

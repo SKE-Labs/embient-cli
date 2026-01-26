@@ -227,7 +227,7 @@ name: {skill_name}
 description: Brief description of what this skill does and when to use it.
 # Optional fields per Agent Skills spec:
 # license: Apache-2.0
-# compatibility: Designed for deepagents CLI
+# compatibility: Designed for embient CLI
 # metadata:
 #   author: your-org
 #   version: "1.0"

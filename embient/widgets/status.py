@@ -1,4 +1,4 @@
-"""Status bar widget for deepagents-cli."""
+"""Status bar widget for embient-cli."""
 
 from __future__ import annotations
 

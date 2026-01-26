@@ -17,10 +17,7 @@ dotenv.load_dotenv()
 # CRITICAL: Override LANGSMITH_PROJECT to route agent traces to separate project
 # LangSmith reads LANGSMITH_PROJECT at invocation time, so we override it here
 # and preserve the user's original value for shell commands
-# Support both EMBIENT_LANGSMITH_PROJECT (new) and DEEPAGENTS_LANGSMITH_PROJECT (legacy)
-_embient_project = os.environ.get("EMBIENT_LANGSMITH_PROJECT") or os.environ.get(
-    "DEEPAGENTS_LANGSMITH_PROJECT"
-)
+_embient_project = os.environ.get("EMBIENT_LANGSMITH_PROJECT")
 _original_langsmith_project = os.environ.get("LANGSMITH_PROJECT")
 if _embient_project:
     # Override LANGSMITH_PROJECT for agent traces
@@ -51,8 +48,6 @@ EMBIENT_ASCII = f"""
                                                       v{__version__}
 """
 
-# Keep old name as alias for backward compatibility
-DEEP_AGENTS_ASCII = EMBIENT_ASCII
 
 # Interactive commands
 COMMANDS = {
@@ -102,7 +97,7 @@ def _find_project_agent_md(project_root: Path) -> list[Path]:
     """Find project-specific AGENTS.md file(s).
 
     Checks two locations and returns ALL that exist:
-    1. project_root/.deepagents/AGENTS.md
+    1. project_root/.embient/AGENTS.md
     2. project_root/AGENTS.md
 
     Both files will be loaded and combined if both exist.
@@ -115,10 +110,10 @@ def _find_project_agent_md(project_root: Path) -> list[Path]:
     """
     paths = []
 
-    # Check .deepagents/AGENTS.md (preferred)
-    deepagents_md = project_root / ".deepagents" / "AGENTS.md"
-    if deepagents_md.exists():
-        paths.append(deepagents_md)
+    # Check .embient/AGENTS.md (preferred)
+    embient_md = project_root / ".embient" / "AGENTS.md"
+    if embient_md.exists():
+        paths.append(embient_md)
 
     # Check root AGENTS.md (fallback, but also include if both exist)
     root_md = project_root / "AGENTS.md"
@@ -182,13 +177,11 @@ class Settings:
         tavily_key = os.environ.get("TAVILY_API_KEY")
 
         # Detect LangSmith configuration
-        # EMBIENT_LANGSMITH_PROJECT: Project for Embient agent tracing (or legacy DEEPAGENTS_)
+        # EMBIENT_LANGSMITH_PROJECT: Project for Embient agent tracing
         # user_langchain_project: User's ORIGINAL LANGSMITH_PROJECT (before override)
         # Note: LANGSMITH_PROJECT was already overridden at module import time (above)
         # so we use the saved original value, not the current os.environ value
-        embient_langchain_project = os.environ.get(
-            "EMBIENT_LANGSMITH_PROJECT"
-        ) or os.environ.get("DEEPAGENTS_LANGSMITH_PROJECT")
+        embient_langchain_project = os.environ.get("EMBIENT_LANGSMITH_PROJECT")
         user_langchain_project = _original_langsmith_project  # Use saved original!
 
         # Detect project
@@ -229,12 +222,6 @@ class Settings:
         """Check if Embient LangChain project name is configured."""
         return self.embient_langchain_project is not None
 
-    # Keep old name as alias for backward compatibility
-    @property
-    def has_deepagents_langchain_project(self) -> bool:
-        """Deprecated: Use has_embient_langchain_project instead."""
-        return self.has_embient_langchain_project
-
     @property
     def has_project(self) -> bool:
         """Check if currently in a git project."""
@@ -248,12 +235,6 @@ class Settings:
             Path to ~/.embient
         """
         return Path.home() / ".embient"
-
-    # Keep old name as alias for backward compatibility
-    @property
-    def user_deepagents_dir(self) -> Path:
-        """Deprecated: Use user_embient_dir instead."""
-        return self.user_embient_dir
 
     def get_user_agent_md_path(self, agent_name: str) -> Path:
         """Get user-level AGENTS.md path for a specific agent.
@@ -274,11 +255,11 @@ class Settings:
         Returns path regardless of whether the file exists.
 
         Returns:
-            Path to {project_root}/.deepagents/AGENTS.md, or None if not in a project
+            Path to {project_root}/.embient/AGENTS.md, or None if not in a project
         """
         if not self.project_root:
             return None
-        return self.project_root / ".deepagents" / "AGENTS.md"
+        return self.project_root / ".embient" / "AGENTS.md"
 
     @staticmethod
     def _is_valid_agent_name(agent_name: str) -> bool:
@@ -324,18 +305,18 @@ class Settings:
         agent_dir.mkdir(parents=True, exist_ok=True)
         return agent_dir
 
-    def ensure_project_deepagents_dir(self) -> Path | None:
-        """Ensure the project .deepagents directory exists and return its path.
+    def ensure_project_embient_dir(self) -> Path | None:
+        """Ensure the project .embient directory exists and return its path.
 
         Returns:
-            Path to project .deepagents directory, or None if not in a project
+            Path to project .embient directory, or None if not in a project
         """
         if not self.project_root:
             return None
 
-        project_deepagents_dir = self.project_root / ".deepagents"
-        project_deepagents_dir.mkdir(parents=True, exist_ok=True)
-        return project_deepagents_dir
+        project_embient_dir = self.project_root / ".embient"
+        project_embient_dir.mkdir(parents=True, exist_ok=True)
+        return project_embient_dir
 
     def get_user_skills_dir(self, agent_name: str) -> Path:
         """Get user-level skills directory path for a specific agent.
@@ -365,17 +346,17 @@ class Settings:
         """Get project-level skills directory path.
 
         Returns:
-            Path to {project_root}/.deepagents/skills/, or None if not in a project
+            Path to {project_root}/.embient/skills/, or None if not in a project
         """
         if not self.project_root:
             return None
-        return self.project_root / ".deepagents" / "skills"
+        return self.project_root / ".embient" / "skills"
 
     def ensure_project_skills_dir(self) -> Path | None:
         """Ensure project-level skills directory exists and return its path.
 
         Returns:
-            Path to {project_root}/.deepagents/skills/, or None if not in a project
+            Path to {project_root}/.embient/skills/, or None if not in a project
         """
         if not self.project_root:
             return None
@@ -490,14 +471,21 @@ def create_model(model_name_override: str | None = None) -> BaseChatModel:
         provider = "google"
         model_name = os.environ.get("GOOGLE_MODEL", "gemini-3-pro-preview")
     else:
-        console.print("[bold red]Error:[/bold red] No API key configured.")
-        console.print("\nPlease set one of the following environment variables:")
-        console.print("  - OPENAI_API_KEY     (for OpenAI models like gpt-5-mini)")
-        console.print("  - ANTHROPIC_API_KEY  (for Claude models)")
-        console.print("  - GOOGLE_API_KEY     (for Google Gemini models)")
-        console.print("\nExample:")
-        console.print("  export OPENAI_API_KEY=your_api_key_here")
-        console.print("\nOr add it to your .env file.")
+        console.print("[bold red]Error:[/bold red] No LLM API key found.")
+        console.print()
+        console.print("embient-cli requires you to provide your own API key (BYOK).")
+        console.print("Set one of the following environment variables:")
+        console.print()
+        console.print("  [cyan]export OPENAI_API_KEY=sk-...[/cyan]       # OpenAI")
+        console.print("  [cyan]export ANTHROPIC_API_KEY=sk-ant-...[/cyan] # Anthropic")
+        console.print("  [cyan]export GOOGLE_API_KEY=AIza...[/cyan]       # Google")
+        console.print()
+        console.print("Get API keys from:")
+        console.print("  • OpenAI: https://platform.openai.com/api-keys")
+        console.print("  • Anthropic: https://console.anthropic.com/")
+        console.print("  • Google: https://aistudio.google.com/apikey")
+        console.print()
+        console.print("[dim]Or add the key to a .env file in your project.[/dim]")
         sys.exit(1)
 
     # Store model info in settings for display

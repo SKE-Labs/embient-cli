@@ -166,7 +166,7 @@ def fetch_url(url: str, timeout: int = 30) -> dict[str, Any]:
         response = requests.get(
             url,
             timeout=timeout,
-            headers={"User-Agent": "Mozilla/5.0 (compatible; DeepAgents/1.0)"},
+            headers={"User-Agent": "Mozilla/5.0 (compatible; Embient/1.0)"},
         )
         response.raise_for_status()
 

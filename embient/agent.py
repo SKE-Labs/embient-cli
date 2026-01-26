@@ -28,12 +28,12 @@ from embient.shell import ShellMiddleware
 
 def list_agents() -> None:
     """List all available agents."""
-    agents_dir = settings.user_deepagents_dir
+    agents_dir = settings.user_embient_dir
 
     if not agents_dir.exists() or not any(agents_dir.iterdir()):
         console.print("[yellow]No agents found.[/yellow]")
         console.print(
-            "[dim]Agents will be created in ~/.deepagents/ when you first use them.[/dim]",
+            "[dim]Agents will be created in ~/.embient/ when you first use them.[/dim]",
             style=COLORS["dim"],
         )
         return
@@ -59,7 +59,7 @@ def list_agents() -> None:
 
 def reset_agent(agent_name: str, source_agent: str | None = None) -> None:
     """Reset an agent to default or copy from another agent."""
-    agents_dir = settings.user_deepagents_dir
+    agents_dir = settings.user_embient_dir
     agent_dir = agents_dir / agent_name
 
     if source_agent:
@@ -102,7 +102,7 @@ def get_system_prompt(assistant_id: str, sandbox_type: str | None = None) -> str
     Returns:
         The system prompt string (without AGENTS.md content)
     """
-    agent_dir_path = f"~/.deepagents/{assistant_id}"
+    agent_dir_path = f"~/.embient/{assistant_id}"
 
     if sandbox_type:
         # Get provider-specific working directory
@@ -336,7 +336,7 @@ def create_cli_agent(
 ) -> tuple[Pregel, CompositeBackend]:
     """Create a CLI-configured agent with flexible options.
 
-    This is the main entry point for creating a deepagents CLI agent, usable both
+    This is the main entry point for creating an Embient CLI agent, usable both
     internally and from external code (e.g., benchmarking frameworks, Harbor).
 
     Args:
@@ -455,7 +455,7 @@ def create_cli_agent(
     # the working directory. For sandbox backends, no special routing is needed.
     if sandbox is None:
         # Local mode: Route large results to a unique temp directory
-        large_results_dir = tempfile.mkdtemp(prefix="deepagents_large_results_")
+        large_results_dir = tempfile.mkdtemp(prefix="embient_large_results_")
         large_results_backend = FilesystemBackend(
             root_dir=large_results_dir,
             virtual_mode=True,

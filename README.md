@@ -105,5 +105,3 @@ uv run ruff format .
 ```
 
 ---
-
-Built with [deepagents](https://github.com/SKE-Labs/deepagents).

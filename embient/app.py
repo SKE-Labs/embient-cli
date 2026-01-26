@@ -125,8 +125,8 @@ Use memory when the knowledge is:
 - Something to always keep in mind
 - A simple rule or pattern
 
-**Global** (`~/.deepagents/agent/AGENTS.md`): Universal preferences across all projects
-**Project** (`.deepagents/AGENTS.md`): Project-specific conventions and decisions
+**Global** (`~/.embient/agent/AGENTS.md`): Universal preferences across all projects
+**Project** (`.embient/AGENTS.md`): Project-specific conventions and decisions
 
 ### → Skill for reusable workflows and methodologies
 **Create a skill when** we developed:
@@ -144,7 +144,7 @@ If we established best practices around a workflow or process, capture them in a
 **Example:** If we discussed best practices for code review, create a `code-review` skill that encodes those practices into a reusable workflow.
 
 ### Skill Location
-`~/.deepagents/agent/skills/<skill-name>/SKILL.md`
+`~/.embient/agent/skills/<skill-name>/SKILL.md`
 
 ### Skill Structure
 ```
@@ -210,10 +210,10 @@ List what you captured and where you stored it:
 """
 
 
-class DeepAgentsApp(App):
+class EmbientApp(App):
     """Main Textual application for Embient CLI."""
 
-    TITLE = "DeepAgents"
+    TITLE = "Embient"
     CSS_PATH = "app.tcss"
     ENABLE_COMMAND_PALETTE = False
 
@@ -256,7 +256,7 @@ class DeepAgentsApp(App):
         initial_prompt: str | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initialize the DeepAgents application.
+        """Initialize the Embient application.
 
         Args:
             agent: Pre-configured LangGraph agent (optional for standalone mode)
@@ -949,7 +949,7 @@ async def run_textual_app(
         thread_id: Optional thread ID for session persistence
         initial_prompt: Optional prompt to auto-submit when session starts
     """
-    app = DeepAgentsApp(
+    app = EmbientApp(
         agent=agent,
         assistant_id=assistant_id,
         backend=backend,

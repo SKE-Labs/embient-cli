@@ -46,7 +46,7 @@ class LocalFilesystemBackend(BackendProtocol):
                   If None, paths are treated as absolute or relative to cwd.
             root_dir: Alias for root (for backwards compatibility).
             virtual_mode: If True, paths are treated as virtual (prepended with root).
-                         This is mainly for compatibility with deepagents.
+                         This is mainly for compatibility with embient.
         """
         effective_root = root or root_dir
         self._root = Path(effective_root).expanduser().resolve() if effective_root else None
@@ -294,7 +294,7 @@ class LocalFilesystemBackend(BackendProtocol):
         return responses
 
 
-# Alias for backwards compatibility with deepagents
+# Alias for backwards compatibility with embient
 FilesystemBackend = LocalFilesystemBackend
 
 __all__ = ["LocalFilesystemBackend", "FilesystemBackend"]

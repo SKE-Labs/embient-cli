@@ -22,7 +22,7 @@ Deep Analysts provides a complete middleware stack for LangChain agents:
 - **Backends**: Store (LangGraph BaseStore), Sandbox (subprocess execution), Composite (path-based routing)
 - **API Integration**: Basement client for syncing skills/memories to cloud
 
-**No dependencies on deepagents** - uses only langchain, langgraph, and standard libraries.
+Uses only langchain, langgraph, and standard libraries (no external embient dependencies).
 
 ## Usage
 

@@ -14,12 +14,12 @@ specialized knowledge, workflows, and tools. Think of them as "onboarding guides
 domains or tasks—they transform a general-purpose agent into a specialized agent
 equipped with procedural knowledge and domain expertise.
 
-### Skill Location for Deepagents
+### Skill Location for Embient
 
-In deepagents CLI, skills are stored in `~/.deepagents/<agent>/skills/` where `<agent>` is your agent configuration name (default is `agent`). For example, with the default configuration, skills live at:
+In embient CLI, skills are stored in `~/.embient/<agent>/skills/` where `<agent>` is your agent configuration name (default is `agent`). For example, with the default configuration, skills live at:
 
 ```
-~/.deepagents/agent/skills/
+~/.embient/agent/skills/
 ├── skill-name-1/
 │   └── SKILL.md
 ├── skill-name-2/
@@ -279,10 +279,10 @@ Usage:
 scripts/init_skill.py <skill-name> --path <output-directory>
 ```
 
-For deepagents CLI, use the agent's skills directory:
+For embient CLI, use the agent's skills directory:
 
 ```bash
-scripts/init_skill.py <skill-name> --path ~/.deepagents/agent/skills
+scripts/init_skill.py <skill-name> --path ~/.embient/agent/skills
 ```
 
 The script:

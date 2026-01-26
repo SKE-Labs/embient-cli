@@ -1,4 +1,4 @@
-"""Allow running the CLI as: python -m deepagents.cli."""
+"""Allow running the CLI as: python -m embient."""
 
 from embient.main import cli_main
 

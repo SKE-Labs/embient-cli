@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from embient.config import COLORS, DEEP_AGENTS_ASCII, MAX_ARG_LENGTH, console
+from embient.config import COLORS, EMBIENT_ASCII, MAX_ARG_LENGTH, console
 
 
 def truncate_value(value: str, max_length: int = MAX_ARG_LENGTH) -> str:
@@ -165,7 +165,7 @@ def format_tool_message_content(content: Any) -> str:
 def show_help() -> None:
     """Show help information."""
     console.print()
-    console.print(DEEP_AGENTS_ASCII, style=f"bold {COLORS['primary']}")
+    console.print(EMBIENT_ASCII, style=f"bold {COLORS['primary']}")
     console.print()
 
     console.print("[bold]Usage:[/bold]", style=COLORS["primary"])

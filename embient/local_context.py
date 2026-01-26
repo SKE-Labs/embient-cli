@@ -124,8 +124,8 @@ class LocalContextMiddleware(AgentMiddleware):
         files = []
         try:
             for item in sorted(cwd.iterdir()):
-                # Skip hidden files (except .deepagents)
-                if item.name.startswith(".") and item.name != ".deepagents":
+                # Skip hidden files (except .embient)
+                if item.name.startswith(".") and item.name != ".embient":
                     continue
 
                 # Skip ignored patterns
@@ -163,8 +163,8 @@ class LocalContextMiddleware(AgentMiddleware):
 
         def _should_include(item: Path) -> bool:
             """Check if item should be included in tree."""
-            # Skip hidden files (except .deepagents)
-            if item.name.startswith(".") and item.name != ".deepagents":
+            # Skip hidden files (except .embient)
+            if item.name.startswith(".") and item.name != ".embient":
                 return False
             # Skip ignored patterns
             return item.name not in IGNORE_PATTERNS

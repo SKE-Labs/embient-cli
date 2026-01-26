@@ -30,7 +30,7 @@ def find_project_agent_md(project_root: Path) -> list[Path]:
     """Find project-specific agent.md file(s).
 
     Checks two locations and returns ALL that exist:
-    1. project_root/.deepagents/agent.md
+    1. project_root/.embient/agent.md
     2. project_root/agent.md
 
     Both files will be loaded and combined if both exist.
@@ -43,10 +43,10 @@ def find_project_agent_md(project_root: Path) -> list[Path]:
     """
     paths = []
 
-    # Check .deepagents/agent.md (preferred)
-    deepagents_md = project_root / ".deepagents" / "agent.md"
-    if deepagents_md.exists():
-        paths.append(deepagents_md)
+    # Check .embient/agent.md (preferred)
+    embient_md = project_root / ".embient" / "agent.md"
+    if embient_md.exists():
+        paths.append(embient_md)
 
     # Check root agent.md (fallback, but also include if both exist)
     root_md = project_root / "agent.md"

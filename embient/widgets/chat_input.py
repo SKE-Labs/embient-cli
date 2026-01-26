@@ -1,4 +1,4 @@
-"""Chat input widget for deepagents-cli with autocomplete and history support."""
+"""Chat input widget for embient-cli with autocomplete and history support."""
 
 from __future__ import annotations
 
@@ -298,7 +298,7 @@ class ChatInput(Vertical):
 
         Args:
             cwd: Current working directory for file completion
-            history_file: Path to history file (default: ~/.deepagents/history.jsonl)
+            history_file: Path to history file (default: ~/.embient/history.jsonl)
             **kwargs: Additional arguments for parent
         """
         super().__init__(**kwargs)
@@ -309,7 +309,7 @@ class ChatInput(Vertical):
 
         # Set up history manager
         if history_file is None:
-            history_file = Path.home() / ".deepagents" / "history.jsonl"
+            history_file = Path.home() / ".embient" / "history.jsonl"
         self._history = HistoryManager(history_file)
         self._submit_enabled = True
 

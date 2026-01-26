@@ -1,4 +1,4 @@
-# DeepAgents CLI Tests
+# Embient CLI Tests
 
 ## API Keys
 
