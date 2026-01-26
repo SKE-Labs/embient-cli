@@ -1,6 +1,5 @@
 """Candle data tools for market analysis."""
 
-import asyncio
 from datetime import datetime as dt
 
 from langchain_core.tools import ToolException, tool
@@ -28,7 +27,7 @@ class LatestCandleSchema(BaseModel):
 
 
 @tool(args_schema=LatestCandleSchema)
-def get_latest_candle(symbol: str, exchange: str = "binance") -> str:
+async def get_latest_candle(symbol: str, exchange: str = "binance") -> str:
     """Fetches the current price (latest 5m candle) for a symbol.
 
     Usage:
@@ -48,10 +47,8 @@ def get_latest_candle(symbol: str, exchange: str = "binance") -> str:
 
     symbol = _normalize_symbol(symbol)
 
-    # Run async client method synchronously
-    candle = asyncio.get_event_loop().run_until_complete(
-        basement_client.get_latest_candle(token, symbol, exchange, interval="5m")
-    )
+    # Call async client method directly
+    candle = await basement_client.get_latest_candle(token, symbol, exchange, interval="5m")
 
     if not candle:
         raise ToolException(
@@ -81,7 +78,7 @@ class CandlesAroundDateSchema(BaseModel):
 
 
 @tool(args_schema=CandlesAroundDateSchema)
-def get_candles_around_date(
+async def get_candles_around_date(
     symbol: str,
     interval: str,
     date: str,
@@ -123,9 +120,7 @@ def get_candles_around_date(
         ) from e
 
     # Get candles around the date (fetch more and filter)
-    candles = asyncio.get_event_loop().run_until_complete(
-        basement_client.get_candles(token, symbol, exchange, interval, limit=50)
-    )
+    candles = await basement_client.get_candles(token, symbol, exchange, interval, limit=50)
 
     if not candles:
         raise ToolException(

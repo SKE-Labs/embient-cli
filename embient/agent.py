@@ -485,20 +485,35 @@ def create_cli_agent(
         from embient.analysts import create_deep_analysts
 
         # Collect memory and skills paths for the trading agent
-        memory_sources = None
-        skills_sources = None
+        # Only include paths that actually exist (unlike code mode, don't auto-create)
+        memory_sources: list[str] = []
+        skills_sources: list[str] = []
 
         if enable_memory:
-            memory_sources = [str(settings.get_user_agent_md_path(assistant_id))]
+            # User's global AGENTS.md (ensure it exists, like code mode)
+            user_agent_md = settings.get_user_agent_md_path(assistant_id)
+            if not user_agent_md.exists():
+                # Create default AGENTS.md for trading mode
+                user_agent_md.parent.mkdir(parents=True, exist_ok=True)
+                user_agent_md.write_text(
+                    "# Trading Agent Memory\n\n"
+                    "Add your trading preferences and notes here.\n"
+                )
+            memory_sources.append(str(user_agent_md))
+
+            # Project-level AGENTS.md (only if it exists)
             project_agent_md = settings.get_project_agent_md_path()
-            if project_agent_md:
+            if project_agent_md and project_agent_md.exists():
                 memory_sources.append(str(project_agent_md))
 
         if enable_skills:
-            skills_dir = settings.ensure_user_skills_dir(assistant_id)
-            skills_sources = [str(skills_dir)]
+            # User's skills directory (ensure it exists)
+            user_skills_dir = settings.ensure_user_skills_dir(assistant_id)
+            skills_sources.append(str(user_skills_dir))
+
+            # Project-level skills (only if directory exists)
             project_skills_dir = settings.get_project_skills_dir()
-            if project_skills_dir:
+            if project_skills_dir and project_skills_dir.exists():
                 skills_sources.append(str(project_skills_dir))
 
         agent = create_deep_analysts(
@@ -506,8 +521,9 @@ def create_cli_agent(
             tools=tools,
             system_prompt=system_prompt,
             checkpointer=final_checkpointer,
-            skills=skills_sources,
-            memory=memory_sources,
+            backend=composite_backend,
+            skills=skills_sources if skills_sources else None,
+            memory=memory_sources if memory_sources else None,
         ).with_config(config)
     else:
         # Code mode: Use standard langchain agent

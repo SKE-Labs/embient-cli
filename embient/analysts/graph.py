@@ -7,6 +7,7 @@ using the `task` tool pattern instead of explicit StateGraph routing.
 from collections.abc import Sequence
 from typing import Any
 
+from deepanalysts.backends import BackendProtocol, FilesystemBackend
 from deepanalysts.middleware import (
     FilesystemMiddleware,
     MemoryMiddleware,
@@ -81,6 +82,7 @@ def create_deep_analysts(
     *,
     system_prompt: str | None = None,
     checkpointer: Checkpointer | None = None,
+    backend: BackendProtocol | None = None,
     skills: list[str] | None = None,
     memory: list[str] | None = None,
     debug: bool = False,
@@ -106,6 +108,7 @@ def create_deep_analysts(
         tools: Additional tools to provide to the orchestrator.
         system_prompt: Override the default supervisor prompt.
         checkpointer: Optional checkpointer for state persistence.
+        backend: Optional backend for filesystem operations. Defaults to FilesystemBackend.
         skills: Optional skill source paths (e.g., ["/skills/trading/"]).
         memory: Optional memory source paths (e.g., ["/memory/AGENTS.md"]).
         debug: Enable debug mode.
@@ -150,6 +153,9 @@ def create_deep_analysts(
         get_signal_manager(model),
     ]
 
+    # Use provided backend or default to local filesystem
+    fs_backend = backend if backend is not None else FilesystemBackend()
+
     # Build subagent middleware factory
     def get_subagent_middleware(subagent_name: str) -> list[AgentMiddleware]:
         """Create middleware stack for a specific subagent.
@@ -163,10 +169,10 @@ def create_deep_analysts(
         ]
 
         if skills:
-            subagent_middleware.append(SkillsMiddleware(sources=skills))
+            subagent_middleware.append(SkillsMiddleware(sources=skills, backend=fs_backend))
 
         subagent_middleware.extend([
-            FilesystemMiddleware(),
+            FilesystemMiddleware(backend=fs_backend),
             PatchToolCallsMiddleware(),  # Last: handle dangling tool calls
         ])
         return subagent_middleware
@@ -178,14 +184,14 @@ def create_deep_analysts(
     ]
 
     if memory:
-        middleware.append(MemoryMiddleware(sources=memory))
+        middleware.append(MemoryMiddleware(sources=memory, backend=fs_backend))
 
     if skills:
-        middleware.append(SkillsMiddleware(sources=skills))
+        middleware.append(SkillsMiddleware(sources=skills, backend=fs_backend))
 
     middleware.extend(
         [
-            FilesystemMiddleware(),
+            FilesystemMiddleware(backend=fs_backend),
             SubAgentMiddleware(
                 default_model=model,
                 default_tools=tools or [],

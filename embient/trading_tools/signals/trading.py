@@ -1,7 +1,5 @@
 """Trading signal tools for creating, updating, and listing signals."""
 
-import asyncio
-
 from langchain_core.tools import ToolException, tool
 from pydantic import BaseModel, Field
 
@@ -24,7 +22,7 @@ class GetSignalsSchema(BaseModel):
 
 
 @tool(args_schema=GetSignalsSchema)
-def get_active_trading_signals(
+async def get_active_trading_signals(
     status: str | None = None,
     ticker: str | None = None,
 ) -> str:
@@ -45,9 +43,7 @@ def get_active_trading_signals(
     if not token:
         raise ToolException("Not authenticated. Please run 'embient login' first.")
 
-    signals = asyncio.get_event_loop().run_until_complete(
-        basement_client.get_trading_signals(token, status=status, ticker=ticker)
-    )
+    signals = await basement_client.get_trading_signals(token, status=status, ticker=ticker)
 
     if signals is None:
         raise ToolException("Failed to fetch trading signals from API.")
@@ -106,7 +102,7 @@ class CreateSignalSchema(BaseModel):
 
 
 @tool(args_schema=CreateSignalSchema)
-def create_trading_signal(
+async def create_trading_signal(
     symbol: str,
     position: str,
     entry_conditions: str,
@@ -163,23 +159,21 @@ def create_trading_signal(
     # Get thread_id from context if available
     thread_id = get_thread_id()
 
-    result = asyncio.get_event_loop().run_until_complete(
-        basement_client.create_trading_signal(
-            token=token,
-            symbol=symbol,
-            position=position,
-            entry_conditions=entry_conditions,
-            suggestion_price=suggestion_price,
-            stop_loss=stop_loss,
-            confidence_score=confidence_score,
-            rationale=rationale,
-            invalid_condition=invalid_condition,
-            take_profit_levels=take_profit_levels,
-            quantity=quantity,
-            leverage=leverage,
-            capital_allocated=capital_allocated,
-            thread_id=thread_id,
-        )
+    result = await basement_client.create_trading_signal(
+        token=token,
+        symbol=symbol,
+        position=position,
+        entry_conditions=entry_conditions,
+        suggestion_price=suggestion_price,
+        stop_loss=stop_loss,
+        confidence_score=confidence_score,
+        rationale=rationale,
+        invalid_condition=invalid_condition,
+        take_profit_levels=take_profit_levels,
+        quantity=quantity,
+        leverage=leverage,
+        capital_allocated=capital_allocated,
+        thread_id=thread_id,
     )
 
     if not result:
@@ -219,7 +213,7 @@ class UpdateSignalSchema(BaseModel):
 
 
 @tool(args_schema=UpdateSignalSchema)
-def update_trading_signal(
+async def update_trading_signal(
     signal_id: int,
     status: str | None = None,
     entry_price: float | None = None,
@@ -265,17 +259,15 @@ def update_trading_signal(
                 f"Invalid status: {status}. Must be one of: {', '.join(valid_statuses)}"
             )
 
-    result = asyncio.get_event_loop().run_until_complete(
-        basement_client.update_trading_signal(
-            token=token,
-            signal_id=signal_id,
-            status=status,
-            entry_price=entry_price,
-            exit_price=exit_price,
-            stop_loss=stop_loss,
-            take_profit_levels=take_profit_levels,
-            reflection=reflection,
-        )
+    result = await basement_client.update_trading_signal(
+        token=token,
+        signal_id=signal_id,
+        status=status,
+        entry_price=entry_price,
+        exit_price=exit_price,
+        stop_loss=stop_loss,
+        take_profit_levels=take_profit_levels,
+        reflection=reflection,
     )
 
     if not result:

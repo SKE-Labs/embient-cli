@@ -1,7 +1,5 @@
 """Technical indicator tools for market analysis."""
 
-import asyncio
-
 from langchain_core.tools import ToolException, tool
 from pydantic import BaseModel, Field
 
@@ -22,7 +20,7 @@ class IndicatorSchema(BaseModel):
 
 
 @tool(args_schema=IndicatorSchema)
-def get_indicator(
+async def get_indicator(
     symbol: str,
     indicator: str,
     exchange: str = "binance",
@@ -70,9 +68,7 @@ def get_indicator(
         params["period"] = period
 
     # Get indicator data
-    data = asyncio.get_event_loop().run_until_complete(
-        basement_client.get_indicator(token, symbol, indicator, exchange, interval, params)
-    )
+    data = await basement_client.get_indicator(token, symbol, indicator, exchange, interval, params)
 
     if not data:
         raise ToolException(

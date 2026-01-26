@@ -1,6 +1,5 @@
 """Position sizing tool for calculating quantity, leverage, and capital allocation."""
 
-import asyncio
 import logging
 
 from langchain_core.tools import ToolException, tool
@@ -126,7 +125,7 @@ class PositionSizeSchema(BaseModel):
 
 
 @tool(args_schema=PositionSizeSchema)
-def calculate_position_size(
+async def calculate_position_size(
     symbol: str,
     entry_price: float,
     stop_loss: float,
@@ -164,9 +163,7 @@ def calculate_position_size(
     user_profile = get_user_profile()
     if not user_profile:
         # Fetch from API
-        profile = asyncio.get_event_loop().run_until_complete(
-            basement_client.get_user_profile(token)
-        )
+        profile = await basement_client.get_user_profile(token)
         if profile:
             set_user_profile(profile)
             user_profile = profile
