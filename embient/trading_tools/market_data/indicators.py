@@ -66,10 +66,29 @@ async def get_indicator(
         params["period"] = period
 
     # Get indicator data
-    data = await basement_client.get_indicator(token, symbol, indicator, exchange, interval, params)
+    try:
+        data = await basement_client.get_indicator(token, symbol, indicator, exchange, interval, params)
 
-    if not data:
-        raise ToolException(f"Failed to get {indicator} for {symbol} on {exchange}. Check symbol and indicator name.")
+        if not data:
+            raise ToolException(
+                f"No {indicator} data found for {symbol} on {exchange}. "
+                f"The indicator may not be available for this symbol."
+            )
+    except ToolException:
+        raise
+    except Exception as e:
+        error_msg = str(e)
+        if "401" in error_msg or "403" in error_msg:
+            raise ToolException("Authentication failed. Run 'embient login' to re-authenticate.") from e
+        elif "404" in error_msg:
+            raise ToolException(
+                f"No {indicator} data found for {symbol} on {exchange}. "
+                f"The indicator may not be calculated yet."
+            ) from e
+        elif "timeout" in error_msg.lower():
+            raise ToolException(f"Request timeout while fetching {indicator} for {symbol}.") from e
+        else:
+            raise ToolException(f"Failed to fetch {indicator} for {symbol}: {error_msg}") from e
 
     # Format output based on indicator type
     indicator_lower = indicator.lower()

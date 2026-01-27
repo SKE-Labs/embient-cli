@@ -52,15 +52,26 @@ async def get_latest_candle(symbol: str, exchange: str = "binance") -> str:
 
     logger.info(f"Fetching latest candle for {symbol} on {exchange}")
 
-    # Call async client method directly
-    candle = await basement_client.get_latest_candle(token, symbol, exchange, interval="5m")
+    try:
+        # Call async client method directly
+        candle = await basement_client.get_latest_candle(token, symbol, exchange, interval="5m")
 
-    if not candle:
-        raise ToolException(
-            f"No candle data found for {symbol} on {exchange}. "
-            f"Check that the symbol exists on {exchange} and try again. "
-            f"If the problem persists, verify your authentication with 'embient status'."
-        )
+        if not candle:
+            raise ToolException(
+                f"No candle data found for {symbol} on {exchange}. "
+                f"The symbol may not exist or have no recent data."
+            )
+    except ToolException:
+        raise
+    except Exception as e:
+        # Convert API/network errors to ToolException with descriptive message
+        error_msg = str(e)
+        if "401" in error_msg or "403" in error_msg:
+            raise ToolException("Authentication failed. Run 'embient login' to re-authenticate.") from e
+        elif "timeout" in error_msg.lower():
+            raise ToolException(f"Request timeout while fetching candle for {symbol}.") from e
+        else:
+            raise ToolException(f"Failed to fetch candle for {symbol}: {error_msg}") from e
 
     # Format output
     return (
@@ -124,10 +135,21 @@ async def get_candles_around_date(
         raise ToolException(f"Invalid date format: {date}. Use YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS. Error: {e}") from e
 
     # Get candles around the date (fetch more and filter)
-    candles = await basement_client.get_candles(token, symbol, exchange, interval, limit=50)
+    try:
+        candles = await basement_client.get_candles(token, symbol, exchange, interval, limit=50)
 
-    if not candles:
-        raise ToolException(f"No candle data found around {date} for {symbol} on {exchange}.")
+        if not candles:
+            raise ToolException(f"No candle data found around {date} for {symbol} on {exchange}.")
+    except ToolException:
+        raise
+    except Exception as e:
+        error_msg = str(e)
+        if "401" in error_msg or "403" in error_msg:
+            raise ToolException("Authentication failed. Run 'embient login' to re-authenticate.") from e
+        elif "timeout" in error_msg.lower():
+            raise ToolException(f"Request timeout while fetching candles for {symbol}.") from e
+        else:
+            raise ToolException(f"Failed to fetch candles for {symbol}: {error_msg}") from e
 
     # Format output as a table
     output_lines = [

@@ -427,19 +427,22 @@ class BasementClient:
                     raise AuthenticationError(
                         "Session expired or invalid. Run 'embient login' to re-authenticate."
                     )
-                logger.error(
-                    f"Failed to fetch candles: {response.status_code} - {response.text}"
-                )
-                return None
 
-        except httpx.TimeoutException:
+                # Log and raise for other errors
+                error_detail = response.text
+                logger.error(f"Failed to fetch candles: {response.status_code} - {error_detail}")
+                raise Exception(
+                    f"API returned {response.status_code}: {error_detail[:200]}"
+                )
+
+        except httpx.TimeoutException as e:
             logger.error("Timeout while fetching candles")
-            return None
+            raise Exception("Request timeout while fetching candles") from e
         except AuthenticationError:
             raise
         except Exception as e:
             logger.error(f"Error fetching candles: {e}")
-            return None
+            raise
 
     async def get_latest_candle(
         self,
@@ -510,19 +513,22 @@ class BasementClient:
                     raise AuthenticationError(
                         "Session expired or invalid. Run 'embient login' to re-authenticate."
                     )
-                logger.error(
-                    f"Failed to fetch indicator: {response.status_code} - {response.text}"
-                )
-                return None
 
-        except httpx.TimeoutException:
+                # Log and raise for other errors
+                error_detail = response.text
+                logger.error(f"Failed to fetch indicator: {response.status_code} - {error_detail}")
+                raise Exception(
+                    f"API returned {response.status_code}: {error_detail[:200]}"
+                )
+
+        except httpx.TimeoutException as e:
             logger.error("Timeout while fetching indicator")
-            return None
+            raise Exception("Request timeout while fetching indicator") from e
         except AuthenticationError:
             raise
         except Exception as e:
             logger.error(f"Error fetching indicator: {e}")
-            return None
+            raise
 
     # =========================================================================
     # Memories and Skills

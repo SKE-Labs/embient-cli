@@ -34,6 +34,6 @@ class WelcomeBanner(Static):
             project = settings.embient_langchain_project or os.environ.get("LANGSMITH_PROJECT") or "default"
             banner_text += f"[green]✓[/green] LangSmith tracing: [cyan]'{project}'[/cyan]\n"
 
-        banner_text += "[#10b981]Ready to trade! What would you analyze?[/#10b981]\n"
+        banner_text += "[#10b981]What would you like to analyze?[/#10b981]\n"
         banner_text += "[dim]Enter send • Ctrl+J newline • @ files • / commands[/dim]"
         super().__init__(banner_text, **kwargs)
