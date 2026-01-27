@@ -405,16 +405,17 @@ class BasementClient:
             List of candle dictionaries with OHLCV data or None on failure
         """
         try:
-            params = {
-                "symbol": symbol,
-                "exchange": exchange,
-                "interval": interval,
-                "limit": limit,
-            }
+            # URL-encode the symbol (e.g., BTC/USDT -> BTC%2FUSDT)
+            from urllib.parse import quote
+            encoded_symbol = quote(symbol, safe="")
+
+            # Build URL with path parameters
+            url = f"{self.base_url}/api/v1/candles/{encoded_symbol}/{interval}"
+            params = {"limit": limit} if limit else {}
 
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.get(
-                    f"{self.base_url}/api/v1/market-data/candles",
+                    url,
                     params=params,
                     headers=self._headers(token),
                 )
@@ -488,16 +489,16 @@ class BasementClient:
         try:
             request_params = {
                 "symbol": symbol,
-                "exchange": exchange,
                 "interval": interval,
-                "indicator": indicator,
+                "indicator_type_code": indicator,
+                "exchange": exchange,
             }
             if params:
                 request_params.update(params)
 
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.get(
-                    f"{self.base_url}/api/v1/market-data/indicator",
+                    f"{self.base_url}/api/v1/indicators/latest",
                     params=request_params,
                     headers=self._headers(token),
                 )

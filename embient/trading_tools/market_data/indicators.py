@@ -3,17 +3,15 @@
 from langchain_core.tools import ToolException, tool
 from pydantic import BaseModel, Field
 
-from embient.auth import get_jwt_token
 from embient.clients import basement_client
+from embient.context import get_jwt_token
 
 
 class IndicatorSchema(BaseModel):
     """Arguments for get_indicator tool."""
 
     symbol: str = Field(description="Asset symbol (e.g., 'BTC/USDT')")
-    indicator: str = Field(
-        description="Indicator name: rsi, macd, ema, sma, bbands, stoch, mfi, dmi, supertrend"
-    )
+    indicator: str = Field(description="Indicator name: rsi, macd, ema, sma, bbands, stoch, mfi, dmi, supertrend")
     exchange: str = Field(default="binance", description="Exchange name")
     interval: str = Field(default="4h", description="Candle interval (e.g., '1h', '4h', '1d')")
     period: int | None = Field(default=None, description="Indicator period (e.g., 14 for RSI)")
@@ -71,10 +69,7 @@ async def get_indicator(
     data = await basement_client.get_indicator(token, symbol, indicator, exchange, interval, params)
 
     if not data:
-        raise ToolException(
-            f"Failed to get {indicator} for {symbol} on {exchange}. "
-            "Check symbol and indicator name."
-        )
+        raise ToolException(f"Failed to get {indicator} for {symbol} on {exchange}. Check symbol and indicator name.")
 
     # Format output based on indicator type
     indicator_lower = indicator.lower()
@@ -88,10 +83,7 @@ async def get_indicator(
         signal = data.get("signal", data.get("macd_signal", "N/A"))
         histogram = data.get("histogram", data.get("macd_histogram", "N/A"))
         return (
-            f"MACD ({interval}) for {symbol}:\n"
-            f"- MACD Line: {macd}\n"
-            f"- Signal Line: {signal}\n"
-            f"- Histogram: {histogram}"
+            f"MACD ({interval}) for {symbol}:\n- MACD Line: {macd}\n- Signal Line: {signal}\n- Histogram: {histogram}"
         )
 
     if indicator_lower in ("ema", "sma"):
@@ -103,41 +95,23 @@ async def get_indicator(
         upper = data.get("upper", data.get("valueUpperBand", "N/A"))
         middle = data.get("middle", data.get("valueMiddleBand", "N/A"))
         lower = data.get("lower", data.get("valueLowerBand", "N/A"))
-        return (
-            f"Bollinger Bands ({interval}) for {symbol}:\n"
-            f"- Upper: {upper}\n"
-            f"- Middle: {middle}\n"
-            f"- Lower: {lower}"
-        )
+        return f"Bollinger Bands ({interval}) for {symbol}:\n- Upper: {upper}\n- Middle: {middle}\n- Lower: {lower}"
 
     if indicator_lower == "stoch":
         k = data.get("k", data.get("value_k", "N/A"))
         d = data.get("d", data.get("value_d", "N/A"))
-        return (
-            f"Stochastic ({interval}) for {symbol}:\n"
-            f"- %K: {k}\n"
-            f"- %D: {d}"
-        )
+        return f"Stochastic ({interval}) for {symbol}:\n- %K: {k}\n- %D: {d}"
 
     if indicator_lower == "dmi":
         plus_di = data.get("plus_di", data.get("adx_plus_di", "N/A"))
         minus_di = data.get("minus_di", data.get("adx_minus_di", "N/A"))
         adx = data.get("adx", "N/A")
-        return (
-            f"DMI ({interval}) for {symbol}:\n"
-            f"- +DI: {plus_di}\n"
-            f"- -DI: {minus_di}\n"
-            f"- ADX: {adx}"
-        )
+        return f"DMI ({interval}) for {symbol}:\n- +DI: {plus_di}\n- -DI: {minus_di}\n- ADX: {adx}"
 
     if indicator_lower == "supertrend":
         value = data.get("value", data.get("supertrend", "N/A"))
         direction = data.get("direction", data.get("supertrend_direction", "N/A"))
-        return (
-            f"Supertrend ({interval}) for {symbol}:\n"
-            f"- Value: {value}\n"
-            f"- Direction: {direction}"
-        )
+        return f"Supertrend ({interval}) for {symbol}:\n- Value: {value}\n- Direction: {direction}"
 
     # Generic format for other indicators
     return f"{indicator.upper()} ({interval}) for {symbol}: {data}"

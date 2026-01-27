@@ -33,6 +33,27 @@ if TYPE_CHECKING:
 
 _HITL_REQUEST_ADAPTER = TypeAdapter(HITLRequest)
 
+# Known subagent types for tagging tool invocations
+SUBAGENT_TYPES = frozenset({"technical_analyst", "fundamental_analyst", "signal_manager"})
+
+
+def _extract_subagent_from_namespace(namespace: tuple) -> str | None:
+    """Extract subagent name from namespace tuple.
+
+    Namespace format when in a subagent: ('task:signal_manager:abc123',)
+    Returns None for main agent (empty namespace).
+    """
+    if not namespace:
+        return None
+
+    for ns_part in namespace:
+        if isinstance(ns_part, str) and ns_part.startswith("task:"):
+            # Extract subagent name from "task:signal_manager:uuid"
+            parts = ns_part.split(":")
+            if len(parts) >= 2 and parts[1] in SUBAGENT_TYPES:
+                return parts[1]
+    return None
+
 
 def _is_summarization_chunk(metadata: dict | None) -> bool:
     """Check if a message chunk is from summarization middleware.
@@ -176,9 +197,7 @@ async def execute_task_textual(
                     )
                 else:
                     content = file_path.read_text()
-                    context_parts.append(
-                        f"\n### {file_path.name}\nPath: `{file_path}`\n```\n{content}\n```"
-                    )
+                    context_parts.append(f"\n### {file_path.name}\nPath: `{file_path}`\n```\n{content}\n```")
             except Exception as e:
                 context_parts.append(f"\n### {file_path.name}\n[Error reading file: {e}]")
         final_input = "\n".join(context_parts)
@@ -269,9 +288,7 @@ async def execute_task_textual(
                         if interrupts:
                             for interrupt_obj in interrupts:
                                 try:
-                                    validated_request = _HITL_REQUEST_ADAPTER.validate_python(
-                                        interrupt_obj.value
-                                    )
+                                    validated_request = _HITL_REQUEST_ADAPTER.validate_python(interrupt_obj.value)
                                     pending_interrupts[interrupt_obj.id] = validated_request
                                     interrupt_occurred = True
                                 except ValidationError:
@@ -284,9 +301,8 @@ async def execute_task_textual(
 
                 # Handle MESSAGES stream - for content and tool calls
                 elif current_stream_mode == "messages":
-                    # Skip subagent outputs - only render main agent content in chat
-                    if not is_main_agent:
-                        continue
+                    # Extract subagent name for tool call tagging
+                    subagent_name = _extract_subagent_from_namespace(ns_key)
 
                     if not isinstance(data, tuple) or len(data) != 2:
                         continue
@@ -298,6 +314,9 @@ async def execute_task_textual(
                         continue
 
                     if isinstance(message, HumanMessage):
+                        # Skip subagent human messages (only show main agent content)
+                        if not is_main_agent:
+                            continue
                         content = message.text
                         # Flush pending text for this namespace
                         pending_text = pending_text_by_namespace.get(ns_key, "")
@@ -309,6 +328,9 @@ async def execute_task_textual(
                         continue
 
                     if isinstance(message, ToolMessage):
+                        # Skip subagent tool results (we show the call, not the result)
+                        if not is_main_agent:
+                            continue
                         tool_name = getattr(message, "name", "")
                         tool_status = getattr(message, "status", "success")
                         tool_content = format_tool_message_content(message.content)
@@ -339,9 +361,7 @@ async def execute_task_textual(
                                 )
                                 pending_text_by_namespace[ns_key] = ""
                             if record.diff:
-                                await adapter._mount_message(
-                                    DiffMessage(record.diff, record.display_path)
-                                )
+                                await adapter._mount_message(DiffMessage(record.diff, record.display_path))
                         continue
 
                     # Extract token usage (before content_blocks check - usage may be on any chunk)
@@ -369,6 +389,9 @@ async def execute_task_textual(
                         block_type = block.get("type")
 
                         if block_type == "text":
+                            # Skip subagent text output - only show main agent text
+                            if not is_main_agent:
+                                continue
                             text = block.get("text", "")
                             if text:
                                 # Track accumulated text for reference
@@ -460,16 +483,20 @@ async def execute_task_textual(
 
                             if buffer_id is not None and buffer_id not in displayed_tool_ids:
                                 displayed_tool_ids.add(buffer_id)
-                                file_op_tracker.start_operation(buffer_name, parsed_args, buffer_id)
+                                # Only track file ops for main agent
+                                if is_main_agent:
+                                    file_op_tracker.start_operation(buffer_name, parsed_args, buffer_id)
 
                                 # Hide thinking spinner before showing tool call
                                 if adapter._hide_thinking:
                                     await adapter._hide_thinking()
 
-                                # Mount tool call message
-                                tool_msg = ToolCallMessage(buffer_name, parsed_args)
+                                # Mount tool call message with subagent source
+                                tool_msg = ToolCallMessage(buffer_name, parsed_args, source_agent=subagent_name)
                                 await adapter._mount_message(tool_msg)
-                                adapter._current_tool_messages[buffer_id] = tool_msg
+                                # Only track main agent tools for status updates
+                                if is_main_agent:
+                                    adapter._current_tool_messages[buffer_id] = tool_msg
 
                             tool_call_buffers.pop(buffer_key, None)
 
@@ -485,9 +512,7 @@ async def execute_task_textual(
             # Flush any remaining text from all namespaces
             for ns_key, pending_text in list(pending_text_by_namespace.items()):
                 if pending_text:
-                    await _flush_assistant_text_ns(
-                        adapter, pending_text, ns_key, assistant_message_by_namespace
-                    )
+                    await _flush_assistant_text_ns(adapter, pending_text, ns_key, assistant_message_by_namespace)
             pending_text_by_namespace.clear()
             assistant_message_by_namespace.clear()
 
@@ -517,10 +542,7 @@ async def execute_task_textual(
                             decision = await future
 
                             # Check for auto-approve-all
-                            if (
-                                isinstance(decision, dict)
-                                and decision.get("type") == "auto_approve_all"
-                            ):
+                            if isinstance(decision, dict) and decision.get("type") == "auto_approve_all":
                                 session_state.auto_approve = True
                                 if adapter._on_auto_approve_enabled:
                                     adapter._on_auto_approve_enabled()
@@ -548,9 +570,7 @@ async def execute_task_textual(
                                 tool_msg_key = tool_id
                             elif tool_name:
                                 # Fallback: find last tool message with matching name
-                                for key, msg in reversed(
-                                    list(adapter._current_tool_messages.items())
-                                ):
+                                for key, msg in reversed(list(adapter._current_tool_messages.items())):
                                     if msg._tool_name == tool_name:
                                         tool_msg = msg
                                         tool_msg_key = key

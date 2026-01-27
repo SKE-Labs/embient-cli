@@ -3,9 +3,8 @@
 from langchain_core.tools import ToolException, tool
 from pydantic import BaseModel, Field
 
-from embient.auth import get_jwt_token
 from embient.clients import basement_client
-from embient.context import get_thread_id
+from embient.context import get_jwt_token, get_thread_id
 
 
 class GetSignalsSchema(BaseModel):
@@ -91,14 +90,10 @@ class CreateSignalSchema(BaseModel):
     confidence_score: float = Field(description="Confidence 0-100")
     rationale: str = Field(description="Reasoning behind the signal")
     invalid_condition: str = Field(description="Conditions that would invalidate the signal")
-    take_profit_levels: list[float] | None = Field(
-        default=None, description="List of take profit price levels"
-    )
+    take_profit_levels: list[float] | None = Field(default=None, description="List of take profit price levels")
     quantity: float | None = Field(default=None, description="Number of units to trade")
     leverage: float | None = Field(default=None, description="Leverage multiplier (1.0-125.0)")
-    capital_allocated: float | None = Field(
-        default=None, description="Capital/margin allocated to this trade"
-    )
+    capital_allocated: float | None = Field(default=None, description="Capital/margin allocated to this trade")
 
 
 @tool(args_schema=CreateSignalSchema)
@@ -206,9 +201,7 @@ class UpdateSignalSchema(BaseModel):
     entry_price: float | None = Field(default=None, description="Actual entry price")
     exit_price: float | None = Field(default=None, description="Actual exit price")
     stop_loss: float | None = Field(default=None, description="Updated stop loss")
-    take_profit_levels: list[float] | None = Field(
-        default=None, description="Updated take profit levels"
-    )
+    take_profit_levels: list[float] | None = Field(default=None, description="Updated take profit levels")
     reflection: str | None = Field(default=None, description="Post-trade reflection notes")
 
 
@@ -255,9 +248,7 @@ async def update_trading_signal(
         status = status.lower()
         valid_statuses = ["active", "expired", "executed", "cancelled"]
         if status not in valid_statuses:
-            raise ToolException(
-                f"Invalid status: {status}. Must be one of: {', '.join(valid_statuses)}"
-            )
+            raise ToolException(f"Invalid status: {status}. Must be one of: {', '.join(valid_statuses)}")
 
     result = await basement_client.update_trading_signal(
         token=token,

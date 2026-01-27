@@ -108,9 +108,7 @@ def parse_args() -> argparse.Namespace:
     # Reset command
     reset_parser = subparsers.add_parser("reset", help="Reset an agent")
     reset_parser.add_argument("--agent", required=True, help="Name of agent to reset")
-    reset_parser.add_argument(
-        "--target", dest="source_agent", help="Copy prompt from another agent"
-    )
+    reset_parser.add_argument("--target", dest="source_agent", help="Copy prompt from another agent")
 
     # Skills command - setup delegated to skills module
     setup_skills_parser(subparsers)
@@ -126,9 +124,7 @@ def parse_args() -> argparse.Namespace:
 
     # threads list
     threads_list = threads_sub.add_parser("list", help="List threads")
-    threads_list.add_argument(
-        "--agent", default=None, help="Filter by agent name (default: show all)"
-    )
+    threads_list.add_argument("--agent", default=None, help="Filter by agent name (default: show all)")
     threads_list.add_argument("--limit", type=int, default=20, help="Max threads (default: 20)")
 
     # threads delete
@@ -163,15 +159,7 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "--model",
-        help="Model to use (e.g., claude-sonnet-4-5-20250929, gpt-5-mini). "
-        "Provider is auto-detected from model name.",
-    )
-    parser.add_argument(
-        "-M",
-        "--mode",
-        choices=["code", "trading"],
-        default="code",
-        help="Agent mode: code (general coding) or trading (deep analysts)",
+        help="Model to use (e.g., claude-sonnet-4-5-20250929, gpt-5-mini). Provider is auto-detected from model name.",
     )
     parser.add_argument(
         "--auto-approve",
@@ -205,7 +193,6 @@ async def run_textual_cli_async(
     thread_id: str | None = None,
     is_resumed: bool = False,
     initial_prompt: str | None = None,
-    mode: str = "code",
 ) -> None:
     """Run the Textual CLI interface (async version).
 
@@ -218,7 +205,6 @@ async def run_textual_cli_async(
         thread_id: Thread ID to use (new or resumed)
         is_resumed: Whether this is a resumed session
         initial_prompt: Optional prompt to auto-submit when session starts
-        mode: Agent mode ("code" or "trading")
     """
     from embient.app import run_textual_app
 
@@ -261,7 +247,6 @@ async def run_textual_cli_async(
                 sandbox_type=sandbox_type if sandbox_type != "none" else None,
                 auto_approve=auto_approve,
                 checkpointer=checkpointer,
-                mode=mode,
             )
 
             # Run Textual app
@@ -330,18 +315,16 @@ def cli_main() -> None:
             else:
                 console.print("[yellow]Usage: embient threads <list|delete>[/yellow]")
         else:
-            # Interactive mode - check auth for trading mode
-            mode = getattr(args, "mode", "code")
-            if mode == "trading":
-                if not is_authenticated():
-                    console.print("[yellow]Not authenticated.[/yellow]")
-                    console.print("[dim]Trading mode requires authentication. Run 'embient login' first.[/dim]")
-                    sys.exit(1)
-                else:
-                    # Set auth token in context for tools
-                    cli_token = get_cli_token()
-                    if cli_token:
-                        set_auth_token(cli_token)
+            # Interactive mode - check auth (required for Deep Analysts)
+            if not is_authenticated():
+                console.print("[yellow]Not authenticated.[/yellow]")
+                console.print("[dim]Embient CLI requires authentication. Run 'embient login' first.[/dim]")
+                sys.exit(1)
+            else:
+                # Set auth token in context for tools
+                cli_token = get_cli_token()
+                if cli_token:
+                    set_auth_token(cli_token)
 
             # Handle thread resume
             thread_id = None
@@ -380,9 +363,7 @@ def cli_main() -> None:
                     error_msg.append(args.resume_thread)
                     error_msg.append("' not found.", style="red")
                     console.print(error_msg)
-                    console.print(
-                        "[dim]Use 'embient threads list' to see available threads.[/dim]"
-                    )
+                    console.print("[dim]Use 'embient threads list' to see available threads.[/dim]")
                     sys.exit(1)
 
             # Generate new thread ID if not resuming
@@ -400,7 +381,6 @@ def cli_main() -> None:
                     thread_id=thread_id,
                     is_resumed=is_resumed,
                     initial_prompt=getattr(args, "initial_prompt", None),
-                    mode=getattr(args, "mode", "code"),
                 )
             )
     except KeyboardInterrupt:

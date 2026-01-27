@@ -1,12 +1,15 @@
 """Candle data tools for market analysis."""
 
+import logging
 from datetime import datetime as dt
 
 from langchain_core.tools import ToolException, tool
 from pydantic import BaseModel, Field
 
-from embient.auth import get_jwt_token
 from embient.clients import basement_client
+from embient.context import get_jwt_token
+
+logger = logging.getLogger(__name__)
 
 
 def _normalize_symbol(symbol: str) -> str:
@@ -47,13 +50,16 @@ async def get_latest_candle(symbol: str, exchange: str = "binance") -> str:
 
     symbol = _normalize_symbol(symbol)
 
+    logger.info(f"Fetching latest candle for {symbol} on {exchange}")
+
     # Call async client method directly
     candle = await basement_client.get_latest_candle(token, symbol, exchange, interval="5m")
 
     if not candle:
         raise ToolException(
             f"No candle data found for {symbol} on {exchange}. "
-            "This symbol may not be available."
+            f"Check that the symbol exists on {exchange} and try again. "
+            f"If the problem persists, verify your authentication with 'embient status'."
         )
 
     # Format output
@@ -115,17 +121,13 @@ async def get_candles_around_date(
         else:
             dt.fromisoformat(f"{normalized_date}T00:00:00")
     except ValueError as e:
-        raise ToolException(
-            f"Invalid date format: {date}. Use YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS. Error: {e}"
-        ) from e
+        raise ToolException(f"Invalid date format: {date}. Use YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS. Error: {e}") from e
 
     # Get candles around the date (fetch more and filter)
     candles = await basement_client.get_candles(token, symbol, exchange, interval, limit=50)
 
     if not candles:
-        raise ToolException(
-            f"No candle data found around {date} for {symbol} on {exchange}."
-        )
+        raise ToolException(f"No candle data found around {date} for {symbol} on {exchange}.")
 
     # Format output as a table
     output_lines = [

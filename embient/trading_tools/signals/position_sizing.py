@@ -5,9 +5,8 @@ import logging
 from langchain_core.tools import ToolException, tool
 from pydantic import BaseModel, Field
 
-from embient.auth import get_jwt_token
 from embient.clients import basement_client
-from embient.context import get_user_profile, set_user_profile
+from embient.context import get_jwt_token, get_user_profile, set_user_profile
 
 logger = logging.getLogger(__name__)
 
@@ -25,10 +24,7 @@ def _round_quantity(quantity: float, symbol: str) -> float:
     symbol_upper = symbol.upper()
 
     # Crypto assets - use 8 decimal places
-    if any(
-        crypto in symbol_upper
-        for crypto in ["BTC", "ETH", "USDT", "USDC", "BNB", "SOL", "ADA", "XRP", "/"]
-    ):
+    if any(crypto in symbol_upper for crypto in ["BTC", "ETH", "USDT", "USDC", "BNB", "SOL", "ADA", "XRP", "/"]):
         return round(quantity, 8)
 
     # Stocks - round to whole numbers or 2 decimals for fractional shares
@@ -168,9 +164,7 @@ async def calculate_position_size(
             set_user_profile(profile)
             user_profile = profile
         else:
-            raise ToolException(
-                "Could not fetch user profile. Position sizing requires account balance information."
-            )
+            raise ToolException("Could not fetch user profile. Position sizing requires account balance information.")
 
     # Calculate position sizing
     capital, leverage, quantity = calculate_position_sizing(

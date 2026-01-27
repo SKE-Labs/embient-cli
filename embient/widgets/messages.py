@@ -169,9 +169,19 @@ class ToolCallMessage(Vertical):
         border-left: thick $secondary;
     }
 
+    ToolCallMessage.subagent-tool {
+        border-left: thick $warning;
+    }
+
     ToolCallMessage .tool-header {
         color: $secondary;
         text-style: bold;
+    }
+
+    ToolCallMessage .tool-source {
+        color: $warning;
+        text-style: italic;
+        margin-left: 2;
     }
 
     ToolCallMessage .tool-args {
@@ -233,6 +243,7 @@ class ToolCallMessage(Vertical):
         self,
         tool_name: str,
         args: dict[str, Any] | None = None,
+        source_agent: str | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize a tool call message.
@@ -240,11 +251,13 @@ class ToolCallMessage(Vertical):
         Args:
             tool_name: Name of the tool being called
             args: Tool arguments (optional)
+            source_agent: Name of subagent that invoked the tool (None for main agent)
             **kwargs: Additional arguments passed to parent
         """
         super().__init__(**kwargs)
         self._tool_name = tool_name
         self._args = args or {}
+        self._source_agent = source_agent
         self._status = "pending"
         self._output: str = ""
         self._expanded: bool = False
@@ -253,6 +266,9 @@ class ToolCallMessage(Vertical):
         self._preview_widget: Static | None = None
         self._hint_widget: Static | None = None
         self._full_widget: Static | None = None
+        # Add class for subagent styling
+        if source_agent:
+            self.add_class("subagent-tool")
 
     def compose(self) -> ComposeResult:
         """Compose the tool call message layout."""
@@ -261,6 +277,10 @@ class ToolCallMessage(Vertical):
             f"[bold yellow]Tool:[/bold yellow] {tool_label}",
             classes="tool-header",
         )
+        # Show source agent for subagent tool calls
+        if self._source_agent:
+            agent_display = self._source_agent.replace("_", " ").title()
+            yield Static(f"via {agent_display}", classes="tool-source")
         args = self._filtered_args()
         if args:
             args_str = ", ".join(f"{k}={v!r}" for k, v in list(args.items())[:_MAX_INLINE_ARGS])
