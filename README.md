@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="banner.png" alt="Embient CLI" width="600" />
+  <img src="banner.png" alt="Embient CLI" width="100%" />
 </p>
 
 # Embient CLI
