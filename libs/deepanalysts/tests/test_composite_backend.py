@@ -117,7 +117,7 @@ class TestCompositeBackendWithSandbox:
         assert write_result.error is None
 
     def test_grep_across_all_backends(self):
-        """Test grep searches all backends when path is /."""
+        """Test grep searches all backends when path is None (search all)."""
         sandbox = RestrictedSubprocessBackend()
         store = make_store_backend()
 
@@ -126,13 +126,20 @@ class TestCompositeBackendWithSandbox:
             routes={"/memories/": store},
         )
 
-        # Write to memories
+        # Write to store route so there's something to find
         store.write("/notes.md", "TODO: implement feature")
 
-        # Grep should search both
-        matches = composite.grep_raw("TODO", path="/")
-        # Pattern matching varies by backend, just check no error
+        # Write to sandbox so its grep has content in its working dir
+        sandbox.execute("echo 'TODO: fix sandbox' > todo.txt")
+
+        # path=None triggers search across all backends.
+        # Using None (not "/") so the sandbox greps its working dir
+        # rather than the host root filesystem.
+        matches = composite.grep_raw("TODO", path=None)
         assert isinstance(matches, list)
+        # Should find the store match at minimum
+        memory_matches = [m for m in matches if "/memories/" in m.get("path", "")]
+        assert len(memory_matches) >= 1
 
 
 class TestCompositeBackendAsync:

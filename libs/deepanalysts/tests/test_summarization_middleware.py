@@ -226,10 +226,10 @@ class TestOffloadingBasic:
         assert path == "/conversation_history/test-thread-123.md"
         assert "## Summarized at" in content
 
-    def test_summarization_aborts_on_backend_failure(self) -> None:
-        """Test that summarization aborts when backend write fails."""
+    def test_summarization_continues_on_backend_failure(self) -> None:
+        """Test that summarization continues (with warning) when backend write fails."""
         backend = MockBackend(should_fail=True)
-        mock_model = make_mock_model(summary_response="Unused summary")
+        mock_model = make_mock_model(summary_response="Summary despite failure")
 
         middleware = SummarizationMiddleware(
             model=mock_model,
@@ -242,10 +242,24 @@ class TestOffloadingBasic:
         state = cast("AgentState[Any]", {"messages": messages})
         runtime = make_mock_runtime()
 
-        result = middleware.before_model(state, runtime)
+        import warnings
 
-        # Should abort summarization to preserve messages
-        assert result is None
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = middleware.before_model(state, runtime)
+            # Should emit a warning about offload failure
+            assert len(w) == 1
+            assert "Offloading conversation history to backend failed" in str(w[0].message)
+
+        # Should continue with summarization (not abort)
+        assert result is not None
+        # Summary message should not include file path (since offload failed)
+        summary_msgs = [
+            m for m in result["messages"]
+            if hasattr(m, "additional_kwargs") and m.additional_kwargs.get("lc_source") == "summarization"
+        ]
+        assert len(summary_msgs) == 1
+        assert "summary of the conversation" in summary_msgs[0].content.lower()
 
 
 class TestNoSummarizationTriggered:
@@ -300,11 +314,10 @@ class TestAsyncBehavior:
         assert len(backend.write_calls) == 1
 
     @pytest.mark.anyio
-    async def test_async_aborts_on_failure(self) -> None:
-        """Test that async summarization aborts on backend failure."""
+    async def test_async_continues_on_failure(self) -> None:
+        """Test that async summarization continues (with warning) on backend failure."""
         backend = MockBackend(should_fail=True)
-        mock_model = make_mock_model()
-        mock_model.ainvoke = MagicMock(return_value=MagicMock(text="Async summary"))
+        mock_model = make_mock_model(summary_response="Async summary despite failure")
 
         middleware = SummarizationMiddleware(
             model=mock_model,
@@ -317,6 +330,14 @@ class TestAsyncBehavior:
         state = cast("AgentState[Any]", {"messages": messages})
         runtime = make_mock_runtime()
 
-        result = await middleware.abefore_model(state, runtime)
+        import warnings
 
-        assert result is None
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = await middleware.abefore_model(state, runtime)
+            # Should emit a warning about offload failure
+            assert len(w) == 1
+            assert "Offloading conversation history to backend failed" in str(w[0].message)
+
+        # Should continue with summarization (not abort)
+        assert result is not None
