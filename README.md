@@ -1,4 +1,8 @@
-# 🚀📈 Embient CLI
+<p align="center">
+  <img src="banner.png" alt="Embient CLI" width="600" />
+</p>
+
+# Embient CLI
 
 Embient CLI is an AI-powered trading assistant that runs locally while fetching market data from the **Basement API**. It combines a multi-agent orchestration system called "Deep Analysts" with trading-specific tools to help you analyze markets and manage trading signals.
 
@@ -9,16 +13,6 @@ Embient CLI is an AI-powered trading assistant that runs locally while fetching 
 - **Signal Management**: CRUD operations for trading signals with Human-in-the-Loop (HITL) approval.
 - **Multi-Agent Orchestration**: Specialized subagents for technical analysis, fundamentals, and signal management.
 - **Secure Authentication**: Browser-based OAuth flow to connect with the Basement API.
-
-```text
- ███████╗ ███╗   ███╗ ██████╗  ██╗ ███████╗ ███╗   ██╗ ████████╗
- ██╔════╝ ████╗ ████║ ██╔══██╗ ██║ ██╔════╝ ████╗  ██║ ╚══██╔══╝
- █████╗   ██╔████╔██║ ██████╔╝ ██║ █████╗   ██╔██╗ ██║    ██║
- ██╔══╝   ██║╚██╔╝██║ ██╔══██╗ ██║ ██╔══╝   ██║╚██╗██║    ██║
- ███████╗ ██║ ╚═╝ ██║ ██████╔╝ ██║ ███████╗ ██║ ╚████║    ██║
- ╚══════╝ ╚═╝     ╚═╝ ╚═════╝  ╚═╝ ╚══════╝ ╚═╝  ╚═══╝    ╚═╝
-                                                 EMBIENT-CLI
-```
 
 ## 🚀 Quickstart
 

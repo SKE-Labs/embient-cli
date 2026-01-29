@@ -172,32 +172,22 @@ def show_help() -> None:
     console.print("  embient [OPTIONS]                           Start interactive session")
     console.print("  embient list                                List all available agents")
     console.print("  embient reset --agent AGENT                 Reset agent to default prompt")
-    console.print(
-        "  embient reset --agent AGENT --target SOURCE Reset agent to copy of another agent"
-    )
+    console.print("  embient reset --agent AGENT --target SOURCE Reset agent to copy of another agent")
     console.print("  embient help                                Show this help message")
     console.print("  embient --version                           Show embient version")
     console.print()
 
     console.print("[bold]Options:[/bold]", style=COLORS["primary"])
     console.print("  --agent NAME                  Agent identifier (default: agent)")
-    console.print(
-        "  --model MODEL                 Model to use (e.g., claude-sonnet-4-5-20250929, gpt-4o)"
-    )
+    console.print("  --model MODEL                 Model to use (e.g., claude-sonnet-4-5-20250929, gpt-4o)")
     console.print("  --auto-approve                Auto-approve tool usage without prompting")
-    console.print(
-        "  --sandbox TYPE                Remote sandbox for execution (modal, runloop, daytona)"
-    )
+    console.print("  --sandbox TYPE                Remote sandbox for execution (modal, runloop, daytona)")
     console.print("  --sandbox-id ID               Reuse existing sandbox (skips creation/cleanup)")
-    console.print(
-        "  -r, --resume [ID]             Resume thread: -r for most recent, -r <ID> for specific"
-    )
+    console.print("  -r, --resume [ID]             Resume thread: -r for most recent, -r <ID> for specific")
     console.print()
 
     console.print("[bold]Examples:[/bold]", style=COLORS["primary"])
-    console.print(
-        "  embient                              # Start with default agent", style=COLORS["dim"]
-    )
+    console.print("  embient                              # Start with default agent", style=COLORS["dim"])
     console.print(
         "  embient --agent mybot                # Start with agent named 'mybot'",
         style=COLORS["dim"],
@@ -231,12 +221,8 @@ def show_help() -> None:
     console.print()
 
     console.print("[bold]Thread Management:[/bold]", style=COLORS["primary"])
-    console.print(
-        "  embient threads list                 # List all sessions", style=COLORS["dim"]
-    )
-    console.print(
-        "  embient threads delete <ID>          # Delete a session", style=COLORS["dim"]
-    )
+    console.print("  embient threads list                 # List all sessions", style=COLORS["dim"])
+    console.print("  embient threads delete <ID>          # Delete a session", style=COLORS["dim"])
     console.print()
 
     console.print("[bold]Interactive Features:[/bold]", style=COLORS["primary"])

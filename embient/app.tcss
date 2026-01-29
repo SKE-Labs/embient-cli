@@ -4,6 +4,7 @@
 Screen {
     layout: vertical;
     layers: base autocomplete;
+    background: $background;
 }
 
 /* Main content goes on base layer by default */
@@ -11,7 +12,7 @@ Screen {
 /* Chat area - main scrollable messages area */
 #chat {
     height: 1fr;
-    padding: 1 2;
+    padding: 1 1;
     background: $background;
 }
 
@@ -51,12 +52,12 @@ Screen {
     margin: 1 0;
     padding: 0 1;
     background: $surface;
-    border: solid $warning;
+    border: solid #e2e8f0;
 }
 
 .approval-menu .approval-title {
     text-style: bold;
-    color: $warning;
+    color: #e2e8f0;
     margin-bottom: 0;
 }
 
@@ -72,7 +73,8 @@ Screen {
 }
 
 .approval-menu .approval-option-selected {
-    background: $primary;
+    background: #e2e8f0;
+    color: black;
     text-style: bold;
 }
 
@@ -87,7 +89,7 @@ Screen {
 #status-bar {
     height: 1;
     dock: bottom;
-    margin-bottom: 1;
+    margin-bottom: 0;
 }
 
 /* Tool approval widgets */
@@ -96,7 +98,7 @@ Screen {
 }
 
 .approval-file-path {
-    color: $primary;
+    color: #e2e8f0;
     text-style: bold;
 }
 
@@ -126,7 +128,7 @@ Screen {
 
 .diff-range {
     height: auto;
-    color: $primary;
+    color: #e2e8f0;
     text-style: bold;
 }
 
@@ -139,7 +141,7 @@ Screen {
 /* Separator line between tool details and options */
 .approval-menu .approval-separator {
     height: 1;
-    color: $warning;
+    color: #e2e8f0;
     margin: 0;
 }
 
@@ -170,6 +172,6 @@ Screen {
     margin-left: 3;
     margin-top: 0;
     padding: 0;
-    background: $background;
+    background: transparent;
     color: $text;
 }

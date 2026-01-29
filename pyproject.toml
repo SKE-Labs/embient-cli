@@ -1,6 +1,6 @@
 [project]
 name = "embient"
-version = "0.1.0"
+version = "0.1.2"
 description = "Embient CLI - AI-powered trading assistant"
 readme = "README.md"
 license = { text = "MIT" }

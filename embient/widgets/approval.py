@@ -84,7 +84,7 @@ class ApprovalMenu(Container):
         """
         # Title
         yield Static(
-            f">>> {self._tool_name} Requires Approval <<<",
+            f"{self._tool_name} requires approval",
             classes="approval-title",
         )
 
@@ -107,7 +107,7 @@ class ApprovalMenu(Container):
 
         # Help text at the very bottom
         yield Static(
-            "↑/↓ navigate • Enter select • y/n/a quick keys",
+            "y/n/a to choose",
             classes="approval-help",
         )
 

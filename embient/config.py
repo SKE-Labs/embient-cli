@@ -26,14 +26,14 @@ if _embient_project:
 # Now safe to import LangChain modules
 from langchain_core.language_models import BaseChatModel
 
-# Color scheme
+# Color scheme — monochrome black & white
 COLORS = {
-    "primary": "#10b981",
+    "primary": "#e2e8f0",
     "dim": "#6b7280",
     "user": "#ffffff",
-    "agent": "#10b981",
-    "thinking": "#34d399",
-    "tool": "#fbbf24",
+    "agent": "#e2e8f0",
+    "thinking": "#94a3b8",
+    "tool": "#94a3b8",
 }
 
 # ASCII art banner
@@ -383,6 +383,46 @@ class SessionState:
         """Toggle auto-approve and return new state."""
         self.auto_approve = not self.auto_approve
         return self.auto_approve
+
+
+def get_agent_context_info(assistant_id: str | None = None) -> dict[str, int]:
+    """Count AGENTS.md files and skills available for the current agent.
+
+    Args:
+        assistant_id: Agent identifier (defaults to "agent")
+
+    Returns:
+        Dictionary with 'agents_md_count' and 'skills_count' keys.
+    """
+    agent_name = assistant_id or "agent"
+    agents_md_count = 0
+    skills_count = 0
+
+    # Count user-level AGENTS.md
+    user_md = settings.get_user_agent_md_path(agent_name)
+    if user_md.exists():
+        agents_md_count += 1
+
+    # Count project-level AGENTS.md files
+    if settings.project_root:
+        project_mds = _find_project_agent_md(settings.project_root)
+        agents_md_count += len(project_mds)
+
+    # Count skills
+    try:
+        from embient.skills.load import list_skills
+
+        user_skills_dir = settings.get_user_skills_dir(agent_name)
+        project_skills_dir = settings.get_project_skills_dir()
+        skills = list_skills(
+            user_skills_dir=user_skills_dir,
+            project_skills_dir=project_skills_dir,
+        )
+        skills_count = len(skills)
+    except Exception:
+        pass
+
+    return {"agents_md_count": agents_md_count, "skills_count": skills_count}
 
 
 def get_default_coding_instructions() -> str:

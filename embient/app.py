@@ -14,9 +14,11 @@ from textual.binding import Binding, BindingType
 from textual.containers import Container, VerticalScroll
 from textual.css.query import NoMatches
 from textual.events import Click, MouseUp
+from textual.theme import Theme
 from textual.widgets import Static
 
 from embient.clipboard import copy_selection_to_clipboard
+from embient.config import get_agent_context_info, settings
 from embient.textual_adapter import TextualUIAdapter, execute_task_textual
 from embient.widgets.approval import ApprovalMenu
 from embient.widgets.chat_input import ChatInput
@@ -226,9 +228,7 @@ class EmbientApp(App):
         Binding("ctrl+c", "quit_or_interrupt", "Quit/Interrupt", show=False),
         Binding("ctrl+d", "quit_app", "Quit", show=False, priority=True),
         Binding("ctrl+t", "toggle_auto_approve", "Toggle Auto-Approve", show=False),
-        Binding(
-            "shift+tab", "toggle_auto_approve", "Toggle Auto-Approve", show=False, priority=True
-        ),
+        Binding("shift+tab", "toggle_auto_approve", "Toggle Auto-Approve", show=False, priority=True),
         Binding("ctrl+o", "toggle_tool_output", "Toggle Tool Output", show=False),
         # Approval menu keys (handled at App level for reliability)
         Binding("up", "approval_up", "Up", show=False),
@@ -269,6 +269,22 @@ class EmbientApp(App):
             **kwargs: Additional arguments passed to parent
         """
         super().__init__(**kwargs)
+        self.register_theme(
+            Theme(
+                name="embient-dark",
+                primary="#ffffff",
+                secondary="#212121",
+                background="#121212",
+                surface="#121212",
+                panel="#1c1c1c",
+                accent="#333333",
+                warning="#f59e0b",
+                error="#ff4444",
+                success="#22c55e",
+                dark=True,
+            )
+        )
+        self.theme = "embient-dark"
         self._agent = agent
         self._assistant_id = assistant_id
         self._backend = backend
@@ -291,10 +307,17 @@ class EmbientApp(App):
 
     def compose(self) -> ComposeResult:
         """Compose the application layout."""
+        # Gather context info for welcome banner
+        agent_info = get_agent_context_info(self._assistant_id)
+
         # Main chat area with scrollable messages
         # Input is inside scroll so it appears right below content initially
         with VerticalScroll(id="chat"):
-            yield WelcomeBanner(id="welcome-banner")
+            yield WelcomeBanner(
+                model_name=settings.model_name,
+                agent_info=agent_info,
+                id="welcome-banner",
+            )
             yield Container(id="messages")
             with Container(id="bottom-app-container"):
                 yield ChatInput(cwd=self._cwd, id="input-area")
@@ -346,9 +369,7 @@ class EmbientApp(App):
         # Auto-submit initial prompt if provided (but not when resuming - let user see history first)
         elif self._initial_prompt and self._initial_prompt.strip():
             # Use call_after_refresh to ensure UI is fully mounted before submitting
-            self.call_after_refresh(
-                lambda: asyncio.create_task(self._handle_user_message(self._initial_prompt))
-            )
+            self.call_after_refresh(lambda: asyncio.create_task(self._handle_user_message(self._initial_prompt)))
 
     def _update_status(self, message: str) -> None:
         """Update the status bar with a message."""
@@ -555,9 +576,7 @@ class EmbientApp(App):
             self.exit()
         elif cmd == "/help":
             await self._mount_message(UserMessage(command))
-            await self._mount_message(
-                SystemMessage("Commands: /quit, /clear, /remember, /tokens, /threads, /help")
-            )
+            await self._mount_message(SystemMessage("Commands: /quit, /clear, /remember, /tokens, /threads, /help"))
 
         elif cmd == "/version":
             await self._mount_message(UserMessage(command))
@@ -581,9 +600,7 @@ class EmbientApp(App):
         elif cmd == "/threads":
             await self._mount_message(UserMessage(command))
             if self._session_state:
-                await self._mount_message(
-                    SystemMessage(f"Current session: {self._session_state.thread_id}")
-                )
+                await self._mount_message(SystemMessage(f"Current session: {self._session_state.thread_id}"))
             else:
                 await self._mount_message(SystemMessage("No active session"))
         elif cmd == "/tokens":
@@ -605,9 +622,7 @@ class EmbientApp(App):
 
             # Build the final prompt
             if additional_context:
-                final_prompt = (
-                    f"{REMEMBER_PROMPT}\n\n**Additional context from user:** {additional_context}"
-                )
+                final_prompt = f"{REMEMBER_PROMPT}\n\n**Additional context from user:** {additional_context}"
             else:
                 final_prompt = REMEMBER_PROMPT
 
@@ -750,9 +765,7 @@ class EmbientApp(App):
                         widget = tool_info.get("widget")
                         if widget:
                             status = getattr(msg, "status", "success")
-                            content = (
-                                msg.content if isinstance(msg.content, str) else str(msg.content)
-                            )
+                            content = msg.content if isinstance(msg.content, str) else str(msg.content)
                             if status == "success":
                                 widget.set_success(content)
                             else:

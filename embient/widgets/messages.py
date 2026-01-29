@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from rich.text import Text
-from textual.containers import Vertical
+from textual.containers import Horizontal, Vertical
 from textual.widgets import Markdown, Static
 from textual.widgets._markdown import MarkdownStream
 
@@ -26,13 +26,12 @@ class UserMessage(Static):
     UserMessage {
         height: auto;
         padding: 0 1;
-        margin: 1 0;
-        background: $surface;
-        border-left: thick $primary;
+        margin: 1 0 0 0;
+        border-left: thick white;
     }
 
     UserMessage .user-prefix {
-        color: $primary;
+        color: white;
         text-style: bold;
     }
 
@@ -53,14 +52,13 @@ class UserMessage(Static):
 
     def compose(self) -> ComposeResult:
         """Compose the user message layout."""
-        # Use Text object to combine styled prefix with unstyled user content
         text = Text()
-        text.append("> ", style="bold #10b981")
+        text.append("> ", style="bold white")
         text.append(self._content)
         yield Static(text)
 
 
-class AssistantMessage(Vertical):
+class AssistantMessage(Horizontal):
     """Widget displaying an assistant message with markdown support.
 
     Uses MarkdownStream for smoother streaming instead of re-rendering
@@ -71,10 +69,21 @@ class AssistantMessage(Vertical):
     AssistantMessage {
         height: auto;
         padding: 0 1;
-        margin: 1 0;
+        margin: 1 0 0 0;
     }
 
-    AssistantMessage Markdown {
+    AssistantMessage .assistant-marker {
+        color: #94a3b8;
+        width: 2;
+        height: 1;
+    }
+
+    AssistantMessage .assistant-body {
+        width: 1fr;
+        height: auto;
+    }
+
+    AssistantMessage .assistant-body Markdown {
         padding: 0;
         margin: 0;
     }
@@ -94,7 +103,9 @@ class AssistantMessage(Vertical):
 
     def compose(self) -> ComposeResult:
         """Compose the assistant message layout."""
-        yield Markdown("", id="assistant-content")
+        yield Static("\u2022", classes="assistant-marker")
+        with Vertical(classes="assistant-body"):
+            yield Markdown("", id="assistant-content")
 
     def on_mount(self) -> None:
         """Store reference to markdown widget."""
@@ -164,18 +175,40 @@ class ToolCallMessage(Vertical):
     ToolCallMessage {
         height: auto;
         padding: 0 1;
-        margin: 1 0;
-        background: $surface;
-        border-left: thick $secondary;
+        margin: 1 0 0 0;
+        border: round $surface-lighten-2;
     }
 
     ToolCallMessage.subagent-tool {
-        border-left: thick $warning;
+    }
+
+    ToolCallMessage.tool-success {
+    }
+
+    ToolCallMessage.tool-error {
+    }
+
+    ToolCallMessage.tool-rejected {
     }
 
     ToolCallMessage .tool-header {
-        color: $secondary;
         text-style: bold;
+    }
+
+    ToolCallMessage .tool-header.pending {
+        color: $text-muted;
+    }
+
+    ToolCallMessage .tool-header.success {
+        color: $success;
+    }
+
+    ToolCallMessage .tool-header.error {
+        color: $error;
+    }
+
+    ToolCallMessage .tool-header.rejected {
+        color: $warning;
     }
 
     ToolCallMessage .tool-source {
@@ -187,26 +220,6 @@ class ToolCallMessage(Vertical):
     ToolCallMessage .tool-args {
         color: $text-muted;
         margin-left: 2;
-    }
-
-    ToolCallMessage .tool-status {
-        margin-left: 2;
-    }
-
-    ToolCallMessage .tool-status.pending {
-        color: $warning;
-    }
-
-    ToolCallMessage .tool-status.success {
-        color: $success;
-    }
-
-    ToolCallMessage .tool-status.error {
-        color: $error;
-    }
-
-    ToolCallMessage .tool-status.rejected {
-        color: $warning;
     }
 
     ToolCallMessage .tool-output {
@@ -226,7 +239,7 @@ class ToolCallMessage(Vertical):
 
     ToolCallMessage .tool-output-hint {
         margin-left: 2;
-        color: $primary;
+        color: $text-muted;
         text-style: italic;
     }
 
@@ -262,21 +275,19 @@ class ToolCallMessage(Vertical):
         self._output: str = ""
         self._expanded: bool = False
         # Widget references (set in on_mount)
-        self._status_widget: Static | None = None
+        self._header_widget: Static | None = None
         self._preview_widget: Static | None = None
         self._hint_widget: Static | None = None
         self._full_widget: Static | None = None
-        # Add class for subagent styling
-        if source_agent:
-            self.add_class("subagent-tool")
 
     def compose(self) -> ComposeResult:
         """Compose the tool call message layout."""
         tool_label = format_tool_display(self._tool_name, self._args)
-        yield Static(
-            f"[bold yellow]Tool:[/bold yellow] {tool_label}",
-            classes="tool-header",
+        self._header_widget = Static(
+            f"[dim]>[/dim] {tool_label}",
+            classes="tool-header pending",
         )
+        yield self._header_widget
         # Show source agent for subagent tool calls
         if self._source_agent:
             agent_display = self._source_agent.replace("_", " ").title()
@@ -287,8 +298,6 @@ class ToolCallMessage(Vertical):
             if len(args) > _MAX_INLINE_ARGS:
                 args_str += ", ..."
             yield Static(f"({args_str})", classes="tool-args")
-        # Status - hidden by default, only shown for errors/rejections
-        yield Static("", classes="tool-status", id="status")
         # Output area - hidden initially, shown when output is set
         # Use markup=False for output content to prevent Rich markup injection
         yield Static("", classes="tool-output-preview", id="output-preview", markup=False)
@@ -296,15 +305,26 @@ class ToolCallMessage(Vertical):
         yield Static("", classes="tool-output", id="output-full", markup=False)
 
     def on_mount(self) -> None:
-        """Cache widget references and hide status/output areas initially."""
-        self._status_widget = self.query_one("#status", Static)
+        """Cache widget references and hide output areas initially."""
         self._preview_widget = self.query_one("#output-preview", Static)
         self._hint_widget = self.query_one("#output-hint", Static)
         self._full_widget = self.query_one("#output-full", Static)
-        self._status_widget.display = False
         self._preview_widget.display = False
         self._hint_widget.display = False
         self._full_widget.display = False
+
+    def _update_header(self, icon: str, css_class: str) -> None:
+        """Update the header widget with a new icon and CSS class.
+
+        Args:
+            icon: Icon character to display (e.g., checkmark, cross)
+            css_class: CSS class for coloring (success, error, rejected)
+        """
+        if self._header_widget:
+            tool_label = format_tool_display(self._tool_name, self._args)
+            self._header_widget.update(f"{icon} {tool_label}")
+            self._header_widget.remove_class("pending", "success", "error", "rejected")
+            self._header_widget.add_class(css_class)
 
     def set_success(self, result: str = "") -> None:
         """Mark the tool call as successful.
@@ -314,7 +334,7 @@ class ToolCallMessage(Vertical):
         """
         self._status = "success"
         self._output = result
-        # No status label for success - just show output
+        self._update_header("[green]\u2713[/green]", "success")
         self._update_output_display()
 
     def set_error(self, error: str) -> None:
@@ -325,10 +345,7 @@ class ToolCallMessage(Vertical):
         """
         self._status = "error"
         self._output = error
-        if self._status_widget:
-            self._status_widget.add_class("error")
-            self._status_widget.update("[red]✗ Error[/red]")
-            self._status_widget.display = True
+        self._update_header("[red]\u2717[/red]", "error")
         # Always show full error - errors should be visible
         self._expanded = True
         self._update_output_display()
@@ -336,18 +353,12 @@ class ToolCallMessage(Vertical):
     def set_rejected(self) -> None:
         """Mark the tool call as rejected by user."""
         self._status = "rejected"
-        if self._status_widget:
-            self._status_widget.add_class("rejected")
-            self._status_widget.update("[yellow]✗ Rejected[/yellow]")
-            self._status_widget.display = True
+        self._update_header("[yellow]\u2717[/yellow]", "rejected")
 
     def set_skipped(self) -> None:
         """Mark the tool call as skipped (due to another rejection)."""
         self._status = "skipped"
-        if self._status_widget:
-            self._status_widget.add_class("rejected")  # Use same styling as rejected
-            self._status_widget.update("[dim]- Skipped[/dim]")
-            self._status_widget.display = True
+        self._update_header("[dim]-[/dim]", "rejected")
 
     def toggle_output(self) -> None:
         """Toggle between preview and full output display."""
@@ -432,9 +443,9 @@ class DiffMessage(Static):
     DiffMessage {
         height: auto;
         padding: 1;
-        margin: 1 0;
+        margin: 1 0 0 0;
         background: $surface;
-        border: solid $primary;
+        border: solid $surface-lighten-2;
     }
 
     DiffMessage .diff-header {
@@ -443,8 +454,8 @@ class DiffMessage(Static):
     }
 
     DiffMessage .diff-add {
-        color: #10b981;
-        background: #10b98120;
+        color: #22c55e;
+        background: #22c55e20;
     }
 
     DiffMessage .diff-remove {
@@ -457,7 +468,7 @@ class DiffMessage(Static):
     }
 
     DiffMessage .diff-hunk {
-        color: $secondary;
+        color: $text-muted;
         text-style: bold;
     }
     """
@@ -491,7 +502,7 @@ class ErrorMessage(Static):
     ErrorMessage {
         height: auto;
         padding: 1;
-        margin: 1 0;
+        margin: 1 0 0 0;
         background: #7f1d1d;
         color: white;
         border-left: thick $error;
@@ -518,9 +529,8 @@ class SystemMessage(Static):
     SystemMessage {
         height: auto;
         padding: 0 1;
-        margin: 1 0;
+        margin: 1 0 0 0;
         color: $text-muted;
-        text-style: italic;
     }
     """
 
@@ -532,4 +542,4 @@ class SystemMessage(Static):
             **kwargs: Additional arguments passed to parent
         """
         # Use Text object to safely render message without markup parsing
-        super().__init__(Text(message, style="dim italic"), **kwargs)
+        super().__init__(Text(message, style="dim"), **kwargs)

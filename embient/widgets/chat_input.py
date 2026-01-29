@@ -120,8 +120,6 @@ class ChatTextArea(TextArea):
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize the chat text area."""
-        # Remove placeholder if passed, TextArea doesn't support it the same way
-        kwargs.pop("placeholder", None)
         super().__init__(**kwargs)
         self._navigating_history = False
         self._completion_active = False
@@ -237,8 +235,8 @@ class ChatInput(Vertical):
         min-height: 3;
         max-height: 12;
         padding: 0;
-        background: $surface;
-        border: solid $primary;
+        background: transparent;
+        border: round #e2e8f0;
     }
 
     ChatInput .input-row {
@@ -250,7 +248,7 @@ class ChatInput(Vertical):
         width: 3;
         height: 1;
         padding: 0 1;
-        color: $primary;
+        color: #e2e8f0;
         text-style: bold;
     }
 
@@ -317,7 +315,7 @@ class ChatInput(Vertical):
         """Compose the chat input layout."""
         with Horizontal(classes="input-row"):
             yield Static(">", classes="input-prompt", id="prompt")
-            yield ChatTextArea(id="chat-input")
+            yield ChatTextArea(id="chat-input", placeholder="Type your message or @path/to/file")
 
         yield CompletionPopup(id="completion-popup")
 
@@ -494,9 +492,7 @@ class ChatInput(Vertical):
     # CompletionView protocol implementation
     # =========================================================================
 
-    def render_completion_suggestions(
-        self, suggestions: list[tuple[str, str]], selected_index: int
-    ) -> None:
+    def render_completion_suggestions(self, suggestions: list[tuple[str, str]], selected_index: int) -> None:
         """Render completion suggestions in the popup."""
         if self._popup:
             self._popup.update_suggestions(suggestions, selected_index)

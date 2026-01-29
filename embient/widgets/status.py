@@ -23,7 +23,7 @@ class StatusBar(Horizontal):
     StatusBar {
         height: 1;
         dock: bottom;
-        background: $surface;
+        background: transparent;
         padding: 0 1;
     }
 
@@ -53,13 +53,13 @@ class StatusBar(Horizontal):
     }
 
     StatusBar .status-auto-approve.on {
-        background: #10b981;
+        background: white;
         color: black;
     }
 
     StatusBar .status-auto-approve.off {
-        background: #f59e0b;
-        color: black;
+        background: #4a5568;
+        color: white;
     }
 
     StatusBar .status-message {
@@ -69,7 +69,7 @@ class StatusBar(Horizontal):
     }
 
     StatusBar .status-message.thinking {
-        color: $warning;
+        color: white;
     }
 
     StatusBar .status-cwd {
@@ -87,6 +87,11 @@ class StatusBar(Horizontal):
     StatusBar .status-model {
         width: auto;
         padding: 0 1;
+        color: $text-muted;
+    }
+
+    StatusBar .status-separator {
+        width: auto;
         color: $text-muted;
     }
     """
@@ -112,12 +117,14 @@ class StatusBar(Horizontal):
         """Compose the status bar layout."""
         yield Static("", classes="status-mode normal", id="mode-indicator")
         yield Static(
-            "manual | shift+tab to cycle",
+            "manual",
             classes="status-auto-approve off",
             id="auto-approve-indicator",
         )
+        yield Static(" | ", classes="status-separator")
         yield Static("", classes="status-message", id="status-message")
         yield Static("", classes="status-tokens", id="tokens-display")
+        yield Static(" | ", classes="status-separator", id="tokens-sep")
         yield Static(settings.model_name or "", classes="status-model", id="model-display")
 
     def on_mount(self) -> None:
@@ -151,10 +158,10 @@ class StatusBar(Horizontal):
         indicator.remove_class("on", "off")
 
         if new_value:
-            indicator.update("auto | shift+tab to cycle")
+            indicator.update("auto")
             indicator.add_class("on")
         else:
-            indicator.update("manual | shift+tab to cycle")
+            indicator.update("manual")
             indicator.add_class("off")
 
     def watch_cwd(self, new_value: str) -> None:

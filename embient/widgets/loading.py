@@ -16,16 +16,16 @@ class BrailleSpinner:
     """Animated braille spinner."""
 
     FRAMES: ClassVar[tuple[str, ...]] = (
-        "⠋",
-        "⠙",
-        "⠹",
-        "⠸",
-        "⠼",
-        "⠴",
-        "⠦",
-        "⠧",
-        "⠇",
-        "⠏",
+        "\u280b",
+        "\u2819",
+        "\u2839",
+        "\u2838",
+        "\u283c",
+        "\u2834",
+        "\u2826",
+        "\u2827",
+        "\u2807",
+        "\u280f",
     )
 
     def __init__(self) -> None:
@@ -62,12 +62,12 @@ class LoadingWidget(Static):
 
     LoadingWidget .loading-spinner {
         width: auto;
-        color: $warning;
+        color: $text-muted;
     }
 
     LoadingWidget .loading-status {
         width: auto;
-        color: $warning;
+        color: $text-muted;
     }
 
     LoadingWidget .loading-hint {
@@ -117,7 +117,7 @@ class LoadingWidget(Static):
 
         if self._spinner_widget:
             frame = self._spinner.next_frame()
-            self._spinner_widget.update(f"[#FFD800]{frame}[/]")
+            self._spinner_widget.update(frame)
 
         if self._hint_widget and self._start_time is not None:
             elapsed = int(time() - self._start_time)
@@ -148,7 +148,7 @@ class LoadingWidget(Static):
         if self._hint_widget:
             self._hint_widget.update(f"(paused at {self._paused_elapsed}s)")
         if self._spinner_widget:
-            self._spinner_widget.update("[dim]⏸[/dim]")
+            self._spinner_widget.update("[dim]\u23f8[/dim]")
 
     def resume(self) -> None:
         """Resume the animation."""
