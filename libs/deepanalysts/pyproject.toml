@@ -1,6 +1,6 @@
 [project]
 name = "deepanalysts"
-version = "0.1.1"
+version = "0.1.2"
 description = "LangChain/LangGraph middleware for building AI agents with memory, skills, and filesystem support"
 readme = "README.md"
 license = { text = "MIT" }

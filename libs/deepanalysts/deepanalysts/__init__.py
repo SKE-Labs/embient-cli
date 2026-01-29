@@ -61,5 +61,3 @@ __all__ = [
     # Utility functions
     "build_session_context",
 ]
-
-__version__ = "0.1.0"
