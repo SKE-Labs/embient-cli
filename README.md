@@ -4,15 +4,14 @@
   <img src="banner.png" alt="Embient CLI" width="100%" />
 </p>
 
-Embient CLI is an AI-powered trading assistant that runs locally while fetching market data from the **Basement API**. It combines a multi-agent orchestration system called "Deep Analysts" with trading-specific tools to help you analyze markets and manage trading signals.
+Embient CLI is an AI-powered trading assistant that runs locally while fetching market data from the **Embient**. It combines a multi-agent orchestration system called "Deep Analysts" with trading-specific tools to help you analyze markets and manage trading signals.
 
 **Key Capabilities:**
 
-- **Two Specialized Modes**: `code` (general coding assistant) and `trading` (Deep Analysts).
 - **Deep Market Integration**: Built-in tools for candles, technical indicators, and news research.
 - **Signal Management**: CRUD operations for trading signals with Human-in-the-Loop (HITL) approval.
 - **Multi-Agent Orchestration**: Specialized subagents for technical analysis, fundamentals, and signal management.
-- **Secure Authentication**: Browser-based OAuth flow to connect with the Basement API.
+- **Secure Authentication**: Browser-based OAuth flow to connect with the Embient Auth.
 
 ## 🚀 Quickstart
 
@@ -27,16 +26,12 @@ uv sync
 **Run the assistant:**
 
 ```bash
-# General coding mode (default)
 uv run embient
-
-# Specialized trading mode
-uv run embient -M trading
 ```
 
 ## 🔐 Authentication
 
-To use market data and trading tools, you need to authenticate with the Basement API.
+To use market data and trading tools, you need to authenticate with the Embient Auth.
 
 ```bash
 uv run embient login    # Opens browser for OAuth
@@ -46,7 +41,7 @@ uv run embient logout   # Clears local credentials
 
 ## 🏗️ Deep Analysts Architecture
 
-In **Trading Mode**, Embient CLI uses a supervisor-subagent architecture to handle complex market analysis tasks.
+Embient uses supervisor-subagent architecture with SKILLS to handle complex market analysis tasks.
 
 ```mermaid
 graph TD
