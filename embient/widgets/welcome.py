@@ -80,6 +80,12 @@ class WelcomeBanner(Vertical):
     WelcomeBanner .welcome-tip-line {
         color: $text-muted;
     }
+
+    WelcomeBanner .welcome-prompt {
+        color: white;
+        margin-top: 1;
+        text-align: center;
+    }
     """
 
     def __init__(
@@ -178,3 +184,5 @@ class WelcomeBanner(Vertical):
                     "  [dim]Shift+Tab[/dim] auto-approve",
                     classes="welcome-tip-line",
                 )
+
+        yield Static("What would you like to analyze?", classes="welcome-prompt")
