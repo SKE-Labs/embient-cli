@@ -27,9 +27,7 @@ class CompletionResult(StrEnum):
 class CompletionView(Protocol):
     """Protocol for views that can display completion suggestions."""
 
-    def render_completion_suggestions(
-        self, suggestions: list[tuple[str, str]], selected_index: int
-    ) -> None:
+    def render_completion_suggestions(self, suggestions: list[tuple[str, str]], selected_index: int) -> None:
         """Render the completion suggestions popup.
 
         Args:
@@ -80,6 +78,12 @@ class CompletionController(Protocol):
 SLASH_COMMANDS: list[tuple[str, str]] = [
     ("/help", "Show help"),
     ("/clear", "Clear chat and start new session"),
+    ("/config", "Show/set trading configuration"),
+    ("/config symbol", "Set default symbol (e.g., BTC/USDT)"),
+    ("/config exchange", "Set default exchange (e.g., binance)"),
+    ("/config interval", "Set default interval (e.g., 4h)"),
+    ("/config position-size", "Set default position size (%)"),
+    ("/config max-leverage", "Set max leverage"),
     ("/remember", "Update memory and skills from conversation"),
     ("/quit", "Exit app"),
     ("/exit", "Exit app"),
@@ -136,9 +140,7 @@ class SlashCommandController:
         search = text[1:cursor_index].lower()
 
         # Filter commands that match
-        suggestions = [
-            (cmd, desc) for cmd, desc in self._commands if cmd.lower().startswith("/" + search)
-        ]
+        suggestions = [(cmd, desc) for cmd, desc in self._commands if cmd.lower().startswith("/" + search)]
 
         if len(suggestions) > MAX_SUGGESTIONS:
             suggestions = suggestions[:MAX_SUGGESTIONS]
@@ -150,9 +152,7 @@ class SlashCommandController:
         else:
             self.reset()
 
-    def on_key(
-        self, event: events.Key, _text: str, cursor_index: int
-    ) -> CompletionResult:
+    def on_key(self, event: events.Key, _text: str, cursor_index: int) -> CompletionResult:
         """Handle key events for navigation and selection."""
         if not self._suggestions:
             return CompletionResult.IGNORED
@@ -301,9 +301,7 @@ def _path_depth(path: str) -> int:
     return path.count("/")
 
 
-def _fuzzy_search(
-    query: str, candidates: list[str], limit: int = 10, *, include_dotfiles: bool = False
-) -> list[str]:
+def _fuzzy_search(query: str, candidates: list[str], limit: int = 10, *, include_dotfiles: bool = False) -> list[str]:
     """Return top matches sorted by score.
 
     Args:
@@ -415,9 +413,7 @@ class FuzzyFileController:
 
         return suggestions
 
-    def on_key(
-        self, event: events.Key, text: str, cursor_index: int
-    ) -> CompletionResult:
+    def on_key(self, event: events.Key, text: str, cursor_index: int) -> CompletionResult:
         """Handle key events for navigation and selection."""
         if not self._suggestions:
             return CompletionResult.IGNORED

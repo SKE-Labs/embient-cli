@@ -17,9 +17,11 @@ from textual.events import Click, MouseUp
 from textual.theme import Theme
 from textual.widgets import Static
 
+from embient.auth import load_credentials
 from embient.clipboard import copy_selection_to_clipboard
 from embient.config import get_agent_context_info, settings
 from embient.textual_adapter import TextualUIAdapter, execute_task_textual
+from embient.trading_config import TradingConfig, get_trading_config, reload_trading_config
 from embient.widgets.approval import ApprovalMenu
 from embient.widgets.chat_input import ChatInput
 from embient.widgets.loading import LoadingWidget
@@ -310,12 +312,26 @@ class EmbientApp(App):
         # Gather context info for welcome banner
         agent_info = get_agent_context_info(self._assistant_id)
 
+        # Load user email from credentials
+        creds = load_credentials()
+        user_email = creds.email if creds else None
+
+        # Load trading config (always load; widget shows section only when not None)
+        trading_config: TradingConfig | None = None
+        try:
+            trading_config = get_trading_config()
+        except Exception:
+            pass
+
         # Main chat area with scrollable messages
         # Input is inside scroll so it appears right below content initially
         with VerticalScroll(id="chat"):
             yield WelcomeBanner(
                 model_name=settings.model_name,
                 agent_info=agent_info,
+                cwd=self._cwd,
+                user_email=user_email,
+                trading_config=trading_config,
                 id="welcome-banner",
             )
             yield Container(id="messages")
@@ -614,6 +630,8 @@ class EmbientApp(App):
                 await self._mount_message(SystemMessage(f"Current context: {formatted} tokens"))
             else:
                 await self._mount_message(SystemMessage("No token usage yet"))
+        elif cmd == "/config" or cmd.startswith("/config "):
+            await self._handle_config_command(command)
         elif cmd == "/remember" or cmd.startswith("/remember "):
             # Extract any additional context after /remember
             additional_context = ""
@@ -632,6 +650,83 @@ class EmbientApp(App):
         else:
             await self._mount_message(UserMessage(command))
             await self._mount_message(SystemMessage(f"Unknown command: {cmd}"))
+
+    async def _handle_config_command(self, command: str) -> None:
+        """Handle /config command for viewing and updating trading configuration.
+
+        Args:
+            command: Full command string (e.g., "/config", "/config symbol BTC/USDT")
+        """
+        await self._mount_message(UserMessage(command))
+
+        parts = command.strip().split(None, 2)  # ["/config", key?, value?]
+
+        config = get_trading_config()
+
+        # Key mapping: command key -> (attr name, display name, type)
+        key_map: dict[str, tuple[str, str, type]] = {
+            "symbol": ("default_symbol", "Symbol", str),
+            "exchange": ("default_exchange", "Exchange", str),
+            "interval": ("default_interval", "Interval", str),
+            "position-size": ("default_position_size", "Position Size", float),
+            "max-leverage": ("max_leverage", "Max Leverage", float),
+        }
+
+        if len(parts) == 1:
+            # /config — show all values
+            symbol = config.default_symbol or "not set"
+            lines = [
+                "Trading Configuration:",
+                f"  symbol          {symbol}",
+                f"  exchange        {config.default_exchange}",
+                f"  interval        {config.default_interval}",
+                f"  position-size   {config.default_position_size}%",
+                f"  max-leverage    {config.max_leverage}x",
+                "",
+                "Usage: /config <key> <value>",
+            ]
+            await self._mount_message(SystemMessage("\n".join(lines)))
+            return
+
+        key = parts[1].lower()
+
+        if key not in key_map:
+            await self._mount_message(SystemMessage(f"Unknown config key: {key}\nValid keys: {', '.join(key_map)}"))
+            return
+
+        attr, display_name, value_type = key_map[key]
+
+        if len(parts) == 2:
+            # /config <key> — show single value
+            current = getattr(config, attr)
+            if current is None:
+                current = "not set"
+            elif value_type is float:
+                suffix = "%" if key == "position-size" else "x"
+                current = f"{current}{suffix}"
+            await self._mount_message(SystemMessage(f"{display_name}: {current}"))
+            return
+
+        # /config <key> <value> — update
+        raw_value = parts[2]
+        if value_type is float:
+            try:
+                parsed = float(raw_value)
+            except ValueError:
+                await self._mount_message(SystemMessage(f"Invalid value for {display_name}: expected a number"))
+                return
+            setattr(config, attr, parsed)
+        else:
+            setattr(config, attr, raw_value)
+
+        config.save()
+        reload_trading_config()
+
+        display_value = raw_value
+        if value_type is float:
+            suffix = "%" if key == "position-size" else "x"
+            display_value = f"{raw_value}{suffix}"
+        await self._mount_message(SystemMessage(f"{display_name} set to {display_value}"))
 
     async def _handle_user_message(self, message: str) -> None:
         """Handle a user message to send to the agent.
