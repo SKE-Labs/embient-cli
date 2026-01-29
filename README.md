@@ -1,8 +1,8 @@
+# Embient CLI
+
 <p align="center">
   <img src="banner.png" alt="Embient CLI" width="100%" />
 </p>
-
-# Embient CLI
 
 Embient CLI is an AI-powered trading assistant that runs locally while fetching market data from the **Basement API**. It combines a multi-agent orchestration system called "Deep Analysts" with trading-specific tools to help you analyze markets and manage trading signals.
 
