@@ -44,7 +44,8 @@ from embient.sessions import (
     thread_exists,
 )
 from embient.skills import execute_skills_command, setup_skills_parser
-from embient.tools import fetch_url, http_request, web_search
+from embient.tools import fetch_url, http_request
+from embient.trading_tools.research import web_search as park_web_search
 from embient.ui import show_help
 
 
@@ -61,11 +62,6 @@ def check_cli_dependencies() -> None:
         import dotenv  # noqa: F401
     except ImportError:
         missing.append("python-dotenv")
-
-    try:
-        import tavily  # noqa: F401
-    except ImportError:
-        missing.append("tavily-python")
 
     try:
         import textual  # noqa: F401
@@ -218,10 +214,8 @@ async def run_textual_cli_async(
 
     # Use async context manager for checkpointer
     async with get_checkpointer() as checkpointer:
-        # Create agent with conditional tools
-        tools = [http_request, fetch_url]
-        if settings.has_tavily:
-            tools.append(web_search)
+        # Create agent with tools
+        tools = [http_request, fetch_url, park_web_search]
 
         # Handle sandbox mode
         sandbox_backend = None

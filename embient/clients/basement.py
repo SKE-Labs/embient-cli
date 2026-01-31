@@ -15,6 +15,7 @@ Usage:
 """
 
 import logging
+import os
 
 import httpx
 
@@ -29,8 +30,7 @@ class AuthenticationError(Exception):
 
     pass
 
-# Static Basement API URL
-BASEMENT_API_URL = "https://basement.embient.ai"
+BASEMENT_API_URL = os.environ.get("BASEMENT_API", "https://basement.embient.ai")
 
 
 class BasementClient:
@@ -529,6 +529,73 @@ class BasementClient:
         except Exception as e:
             logger.error(f"Error fetching indicator: {e}")
             raise
+
+    # =========================================================================
+    # Economics Calendar
+    # =========================================================================
+
+    async def get_economics_calendar(
+        self,
+        token: str,
+        from_date: str | None = None,
+        to_date: str | None = None,
+        country: str | None = None,
+        impact: str | None = None,
+        event: str | None = None,
+    ) -> list[dict] | None:
+        """Retrieve economic calendar events.
+
+        Args:
+            token: JWT authentication token
+            from_date: Start date (YYYY-MM-DD)
+            to_date: End date (YYYY-MM-DD)
+            country: Country filter (e.g., US, JP)
+            impact: Impact level filter (High, Medium, Low)
+            event: Event name keyword filter
+
+        Returns:
+            List of economic calendar event dicts or None on failure
+        """
+        try:
+            params: dict = {}
+            if from_date:
+                params["from"] = from_date
+            if to_date:
+                params["to"] = to_date
+            if country:
+                params["country"] = country
+            if impact:
+                params["impact"] = impact
+            if event:
+                params["event"] = event
+
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v1/economics-calendar",
+                    params=params,
+                    headers=self._headers(token),
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get("response", [])
+                if response.status_code in (401, 403):
+                    raise AuthenticationError(
+                        "Session expired or invalid. Run 'embient login' to re-authenticate."
+                    )
+                logger.error(
+                    f"Failed to get economics calendar: {response.status_code} - {response.text}"
+                )
+                return None
+
+        except httpx.TimeoutException:
+            logger.error("Timeout while fetching economics calendar")
+            return None
+        except AuthenticationError:
+            raise
+        except Exception as e:
+            logger.error(f"Error fetching economics calendar: {e}")
+            return None
 
     # =========================================================================
     # Memories and Skills

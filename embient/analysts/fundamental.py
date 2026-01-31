@@ -3,6 +3,12 @@
 from deepanalysts import SubAgent
 from langchain_core.language_models import BaseChatModel
 
+from embient.trading_tools.research import (
+    get_economics_calendar,
+    get_financial_news,
+    get_fundamentals,
+)
+
 FUNDAMENTAL_ANALYST_PROMPT = """# Fundamental Analyst
 
 You are a fundamental analysis specialist. You excel at researching financial statements, valuation metrics, news catalysts, and market events.
@@ -64,6 +70,6 @@ def get_fundamental_analyst(model: BaseChatModel) -> SubAgent:
             "Use for researching fundamentals, financial health, and investment thesis."
         ),
         "system_prompt": FUNDAMENTAL_ANALYST_PROMPT,
-        "tools": [],  # No tools for now - can be extended with news tools later
+        "tools": [get_financial_news, get_fundamentals, get_economics_calendar],
         "model": model,
     }

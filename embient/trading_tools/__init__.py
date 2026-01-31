@@ -8,6 +8,12 @@ from embient.trading_tools.market_data import (
     get_indicator,
     get_latest_candle,
 )
+from embient.trading_tools.research import (
+    get_economics_calendar,
+    get_financial_news,
+    get_fundamentals,
+    web_search,
+)
 from embient.trading_tools.signals import (
     calculate_position_size,
     create_trading_signal,
@@ -20,6 +26,11 @@ __all__ = [
     "get_latest_candle",
     "get_candles_around_date",
     "get_indicator",
+    # Research
+    "web_search",
+    "get_financial_news",
+    "get_fundamentals",
+    "get_economics_calendar",
     # Signals
     "get_active_trading_signals",
     "create_trading_signal",
