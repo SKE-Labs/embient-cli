@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from embient.widgets.autocomplete import (
+    MAX_SUGGESTIONS,
     SLASH_COMMANDS,
     FuzzyFileController,
     MultiCompletionManager,
@@ -223,7 +224,7 @@ class TestSlashCommandController:
 
         mock_view.render_completion_suggestions.assert_called()
         suggestions = mock_view.render_completion_suggestions.call_args[0][0]
-        assert len(suggestions) == len(SLASH_COMMANDS)
+        assert len(suggestions) == min(len(SLASH_COMMANDS), MAX_SUGGESTIONS)
 
     def test_clears_on_no_match(self, controller, mock_view):
         """Clears suggestions when no commands match after having suggestions."""

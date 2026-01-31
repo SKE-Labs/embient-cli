@@ -262,7 +262,7 @@ Use this tool to run commands, scripts, tests, builds, and other shell operation
 def _supports_execution(backend: BackendProtocol) -> bool:
     """Check if a backend supports command execution."""
     if isinstance(backend, CompositeBackend):
-        return isinstance(backend.default, SandboxBackendProtocol)
+        return isinstance(backend.default, SandboxBackendProtocol) or hasattr(backend.default, "execute")
     return isinstance(backend, SandboxBackendProtocol) or hasattr(backend, "execute")
 
 
@@ -749,9 +749,7 @@ class FilesystemMiddleware(AgentMiddleware):
             system_prompt = "\n\n".join(prompt_parts)
 
         if system_prompt:
-            system_message = append_to_system_message(
-                request.system_message, system_prompt
-            )
+            system_message = append_to_system_message(request.system_message, system_prompt)
             request = request.override(system_message=system_message)
 
         return handler(request)
@@ -791,9 +789,7 @@ class FilesystemMiddleware(AgentMiddleware):
             system_prompt = "\n\n".join(prompt_parts)
 
         if system_prompt:
-            system_message = append_to_system_message(
-                request.system_message, system_prompt
-            )
+            system_message = append_to_system_message(request.system_message, system_prompt)
             request = request.override(system_message=system_message)
 
         return await handler(request)
@@ -873,10 +869,7 @@ class FilesystemMiddleware(AgentMiddleware):
             resolved_backend = self._get_backend(runtime)
             processed_messages = []
             for message in command_messages:
-                if not (
-                    self.tool_token_limit_before_evict
-                    and isinstance(message, ToolMessage)
-                ):
+                if not (self.tool_token_limit_before_evict and isinstance(message, ToolMessage)):
                     processed_messages.append(message)
                     continue
                 content = self._extract_text_content(message.content)
@@ -964,10 +957,7 @@ class FilesystemMiddleware(AgentMiddleware):
             resolved_backend = self._get_backend(runtime)
             processed_messages = []
             for message in command_messages:
-                if not (
-                    self.tool_token_limit_before_evict
-                    and isinstance(message, ToolMessage)
-                ):
+                if not (self.tool_token_limit_before_evict and isinstance(message, ToolMessage)):
                     processed_messages.append(message)
                     continue
                 content = self._extract_text_content(message.content)

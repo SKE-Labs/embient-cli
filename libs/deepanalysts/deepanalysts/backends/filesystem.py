@@ -6,12 +6,15 @@ Use for loading configuration files, memories, and skills from disk.
 
 from __future__ import annotations
 
+import asyncio
 import os
+import subprocess
 from pathlib import Path
 
 from deepanalysts.backends.protocol import (
     BackendProtocol,
     EditResult,
+    ExecuteResponse,
     FileDownloadResponse,
     FileInfo,
     GrepMatch,
@@ -75,10 +78,12 @@ class LocalFilesystemBackend(BackendProtocol):
         results: list[FileInfo] = []
         try:
             for entry in resolved.iterdir():
-                results.append({
-                    "path": str(entry),
-                    "is_dir": entry.is_dir(),
-                })
+                results.append(
+                    {
+                        "path": str(entry),
+                        "is_dir": entry.is_dir(),
+                    }
+                )
         except PermissionError:
             pass
         return results
@@ -179,9 +184,7 @@ class LocalFilesystemBackend(BackendProtocol):
         if count == 0:
             return EditResult(error=f"Error: String not found in file: '{old_string}'")
         if count > 1 and not replace_all:
-            return EditResult(
-                error=f"Error: String '{old_string}' appears {count} times. Use replace_all=True."
-            )
+            return EditResult(error=f"Error: String '{old_string}' appears {count} times. Use replace_all=True.")
 
         if replace_all:
             new_content = content.replace(old_string, new_string)
@@ -227,11 +230,13 @@ class LocalFilesystemBackend(BackendProtocol):
                     with open(file_path, encoding="utf-8", errors="replace") as f:
                         for line_num, line in enumerate(f, 1):
                             if pattern in line:
-                                matches.append({
-                                    "path": str(file_path),
-                                    "line": line_num,
-                                    "text": line.rstrip("\n"),
-                                })
+                                matches.append(
+                                    {
+                                        "path": str(file_path),
+                                        "line": line_num,
+                                        "text": line.rstrip("\n"),
+                                    }
+                                )
                 except (PermissionError, OSError):
                     continue
         except PermissionError:
@@ -256,14 +261,67 @@ class LocalFilesystemBackend(BackendProtocol):
         results: list[FileInfo] = []
         try:
             for match in search_path.glob(pattern):
-                results.append({
-                    "path": str(match),
-                    "is_dir": match.is_dir(),
-                })
+                results.append(
+                    {
+                        "path": str(match),
+                        "is_dir": match.is_dir(),
+                    }
+                )
         except PermissionError:
             pass
 
         return results
+
+    def execute(self, command: str, timeout: int = 120) -> ExecuteResponse:
+        """Execute a shell command in the filesystem root (or cwd).
+
+        Provides local command execution for agents running without a sandbox.
+        Uses the backend's root directory as the working directory, falling back
+        to the process cwd.
+
+        Args:
+            command: Shell command string to execute.
+            timeout: Maximum execution time in seconds (default 120).
+
+        Returns:
+            ExecuteResponse with combined stdout/stderr and exit code.
+        """
+        cwd = str(self._root) if self._root else None
+
+        try:
+            result = subprocess.run(
+                ["bash", "-c", command],
+                capture_output=True,
+                timeout=timeout,
+                cwd=cwd,
+                text=True,
+            )
+
+            output = result.stdout or ""
+            if result.stderr:
+                output += "\n" + result.stderr if output else result.stderr
+
+            return ExecuteResponse(
+                output=output,
+                exit_code=result.returncode,
+                truncated=False,
+            )
+        except subprocess.TimeoutExpired:
+            return ExecuteResponse(
+                output=f"Error: Command timed out after {timeout} seconds",
+                exit_code=-1,
+                truncated=False,
+            )
+        except Exception as e:
+            return ExecuteResponse(
+                output=f"Error: {e!s}",
+                exit_code=-1,
+                truncated=False,
+            )
+
+    async def aexecute(self, command: str, timeout: int = 120) -> ExecuteResponse:
+        """Async version of execute."""
+        return await asyncio.to_thread(self.execute, command, timeout)
 
     def download_files(self, paths: list[str]) -> list[FileDownloadResponse]:
         """Download files (read as bytes).
@@ -278,19 +336,13 @@ class LocalFilesystemBackend(BackendProtocol):
         for path in paths:
             resolved = self._resolve_path(path)
             if not resolved.exists():
-                responses.append(FileDownloadResponse(
-                    path=path, content=None, error="file_not_found"
-                ))
+                responses.append(FileDownloadResponse(path=path, content=None, error="file_not_found"))
                 continue
             try:
                 content = resolved.read_bytes()
-                responses.append(FileDownloadResponse(
-                    path=path, content=content, error=None
-                ))
+                responses.append(FileDownloadResponse(path=path, content=content, error=None))
             except PermissionError:
-                responses.append(FileDownloadResponse(
-                    path=path, content=None, error="permission_denied"
-                ))
+                responses.append(FileDownloadResponse(path=path, content=None, error="permission_denied"))
         return responses
 
 

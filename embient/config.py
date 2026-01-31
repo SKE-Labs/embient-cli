@@ -541,6 +541,27 @@ def create_model(model_name_override: str | None = None) -> BaseChatModel:
     if provider == "google":
         from langchain_google_genai import ChatGoogleGenerativeAI
 
+        # Workaround for google-genai SDK bug where HttpResponse.json property
+        # assumes response_stream is a list, but it can be a raw ClientResponse
+        # when an API error occurs. This causes TypeError when LangChain's error
+        # handler calls hasattr(response, "json"). The segments() method in the
+        # same class handles this correctly — the json property does not.
+        # See: https://github.com/googleapis/python-genai/issues
+        try:
+            from google.genai._api_client import HttpResponse
+
+            _original_json_fget = HttpResponse.json.fget
+
+            @property  # type: ignore[misc]
+            def _safe_json(self: HttpResponse):  # type: ignore[no-redef]
+                if not isinstance(self.response_stream, list):
+                    return ""
+                return _original_json_fget(self)
+
+            HttpResponse.json = _safe_json  # type: ignore[assignment]
+        except Exception:
+            pass
+
         return ChatGoogleGenerativeAI(
             model=model_name,
             temperature=0,

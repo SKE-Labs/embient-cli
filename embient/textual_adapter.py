@@ -40,19 +40,72 @@ SUBAGENT_TYPES = frozenset({"technical_analyst", "fundamental_analyst", "signal_
 def _extract_subagent_from_namespace(namespace: tuple) -> str | None:
     """Extract subagent name from namespace tuple.
 
-    Namespace format when in a subagent: ('task:signal_manager:abc123',)
+    Checks multiple patterns since LangGraph namespace format varies:
+    - 'task:signal_manager:abc123' (explicit task prefix)
+    - 'technical_analyst:abc123' (subagent name as node)
+    - Any part containing a known subagent type name
+
     Returns None for main agent (empty namespace).
     """
     if not namespace:
         return None
 
     for ns_part in namespace:
-        if isinstance(ns_part, str) and ns_part.startswith("task:"):
-            # Extract subagent name from "task:signal_manager:uuid"
+        if not isinstance(ns_part, str):
+            continue
+        # Pattern 1: "task:subagent_name:uuid"
+        if ns_part.startswith("task:"):
             parts = ns_part.split(":")
             if len(parts) >= 2 and parts[1] in SUBAGENT_TYPES:
                 return parts[1]
+        # Pattern 2: namespace part contains a known subagent type
+        for subagent_type in SUBAGENT_TYPES:
+            if subagent_type in ns_part:
+                return subagent_type
     return None
+
+
+def _resolve_subagent_name(
+    ns_key: tuple,
+    metadata: dict | None,
+    cache: dict[tuple, str],
+) -> str | None:
+    """Resolve subagent name using metadata tags, namespace, and cache.
+
+    The SubAgentMiddleware sets ``tags=[subagent_type]`` in the config passed
+    to ``subagent.ainvoke()``.  These tags propagate through LangGraph's
+    streaming metadata, so checking metadata is the most reliable strategy.
+
+    Args:
+        ns_key: Namespace tuple (empty for main agent).
+        metadata: Streaming metadata dict from LangGraph.
+        cache: Mutable namespace→subagent mapping for fast repeat lookups.
+
+    Returns:
+        Subagent name string, or None for main agent / unknown namespace.
+    """
+    if not ns_key:
+        return None
+
+    # Fast path: already resolved this namespace
+    cached = cache.get(ns_key)
+    if cached is not None:
+        return cached
+
+    # Strategy 1: metadata tags (most reliable)
+    if metadata:
+        tags = metadata.get("tags") or []
+        if isinstance(tags, list):
+            for tag in tags:
+                if isinstance(tag, str) and tag in SUBAGENT_TYPES:
+                    cache[ns_key] = tag
+                    return tag
+
+    # Strategy 2: namespace string patterns
+    result = _extract_subagent_from_namespace(ns_key)
+    if result:
+        cache[ns_key] = result
+    return result
 
 
 def _is_summarization_chunk(metadata: dict | None) -> bool:
@@ -239,11 +292,16 @@ async def execute_task_textual(
     file_op_tracker = FileOpTracker(assistant_id=assistant_id, backend=backend)
     displayed_tool_ids: set[str] = set()
     tool_call_buffers: dict[str | int, dict] = {}
+    # Track active task blocks by subagent type so subagent tool calls nest inside them
+    active_task_by_subagent: dict[str, ToolCallMessage] = {}
 
     # Track pending text and assistant messages PER NAMESPACE to avoid interleaving
     # when multiple subagents stream in parallel
     pending_text_by_namespace: dict[tuple, str] = {}
     assistant_message_by_namespace: dict[tuple, Any] = {}
+
+    # Cache namespace→subagent mapping for consistent identification
+    namespace_subagent_map: dict[tuple, str] = {}
 
     # Clear images from tracker after creating the message
     if image_tracker:
@@ -301,13 +359,13 @@ async def execute_task_textual(
 
                 # Handle MESSAGES stream - for content and tool calls
                 elif current_stream_mode == "messages":
-                    # Extract subagent name for tool call tagging
-                    subagent_name = _extract_subagent_from_namespace(ns_key)
-
                     if not isinstance(data, tuple) or len(data) != 2:
                         continue
 
                     message, _metadata = data
+
+                    # Resolve subagent name using metadata tags + namespace
+                    subagent_name = _resolve_subagent_name(ns_key, _metadata, namespace_subagent_map)
 
                     # Filter out summarization LLM output
                     if _is_summarization_chunk(_metadata):
@@ -328,8 +386,14 @@ async def execute_task_textual(
                         continue
 
                     if isinstance(message, ToolMessage):
-                        # Skip subagent tool results (we show the call, not the result)
+                        # Subagent tool results: update nested sub-tool status
                         if not is_main_agent:
+                            tool_id = getattr(message, "tool_call_id", None)
+                            tool_status = getattr(message, "status", "success")
+                            if subagent_name and tool_id:
+                                parent = active_task_by_subagent.get(subagent_name)
+                                if parent:
+                                    parent.complete_sub_tool(tool_id, success=(tool_status == "success"))
                             continue
                         tool_name = getattr(message, "name", "")
                         tool_status = getattr(message, "status", "success")
@@ -483,6 +547,15 @@ async def execute_task_textual(
 
                             if buffer_id is not None and buffer_id not in displayed_tool_ids:
                                 displayed_tool_ids.add(buffer_id)
+
+                                # Subagent tool calls: nest inside parent task block
+                                if not is_main_agent and subagent_name:
+                                    parent = active_task_by_subagent.get(subagent_name)
+                                    if parent:
+                                        await parent.add_sub_tool(buffer_id, buffer_name, parsed_args)
+                                        tool_call_buffers.pop(buffer_key, None)
+                                        continue
+
                                 # Only track file ops for main agent
                                 if is_main_agent:
                                     file_op_tracker.start_operation(buffer_name, parsed_args, buffer_id)
@@ -497,6 +570,11 @@ async def execute_task_textual(
                                 # Only track main agent tools for status updates
                                 if is_main_agent:
                                     adapter._current_tool_messages[buffer_id] = tool_msg
+                                    # Register task tools for subagent nesting
+                                    if buffer_name == "task":
+                                        subagent_type = parsed_args.get("subagent_type")
+                                        if subagent_type:
+                                            active_task_by_subagent[subagent_type] = tool_msg
 
                             tool_call_buffers.pop(buffer_key, None)
 

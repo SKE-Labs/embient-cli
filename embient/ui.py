@@ -126,11 +126,111 @@ def format_tool_display(tool_name: str, tool_args: dict) -> str:
             return f'{tool_name}("{url}")'
 
     elif tool_name == "task":
-        # Task: show the task description
+        # Task: show subagent name prominently
+        subagent = tool_args.get("subagent_type", "")
+        if subagent:
+            agent_display = subagent.replace("_", " ").title()
+            return f"task \u2192 {agent_display}"
+        # Fallback: show truncated description
         if "description" in tool_args:
             desc = str(tool_args["description"])
-            desc = truncate_value(desc, 100)
+            desc = truncate_value(desc, 80)
             return f'{tool_name}("{desc}")'
+        return f"{tool_name}()"
+
+    elif tool_name == "get_financial_news":
+        # News: show the topic
+        if "topic" in tool_args:
+            topic = str(tool_args["topic"])
+            topic = truncate_value(topic, 80)
+            return f'{tool_name}("{topic}")'
+
+    elif tool_name == "get_fundamentals":
+        # Fundamentals: show ticker and data type
+        parts = []
+        if "ticker" in tool_args:
+            parts.append(str(tool_args["ticker"]))
+        if "data_type" in tool_args:
+            parts.append(str(tool_args["data_type"]))
+        if parts:
+            return f"{tool_name}({', '.join(parts)})"
+
+    elif tool_name == "get_latest_candle":
+        # Latest candle: show symbol
+        if "symbol" in tool_args:
+            return f"{tool_name}({tool_args['symbol']})"
+
+    elif tool_name == "get_candles_around_date":
+        # Historical candles: show symbol and date
+        parts = []
+        if "symbol" in tool_args:
+            parts.append(str(tool_args["symbol"]))
+        if "date" in tool_args:
+            parts.append(str(tool_args["date"]))
+        if parts:
+            return f"{tool_name}({', '.join(parts)})"
+
+    elif tool_name == "get_indicator":
+        # Indicator: show indicator name and symbol
+        parts = []
+        if "indicator" in tool_args:
+            parts.append(str(tool_args["indicator"]))
+        if "symbol" in tool_args:
+            parts.append(str(tool_args["symbol"]))
+        if parts:
+            return f"{tool_name}({', '.join(parts)})"
+
+    elif tool_name == "get_economics_calendar":
+        # Economics calendar: show key filters
+        parts = []
+        if "impact" in tool_args:
+            parts.append(str(tool_args["impact"]))
+        if "country" in tool_args:
+            parts.append(str(tool_args["country"]))
+        if "from_date" in tool_args:
+            date_range = str(tool_args["from_date"])
+            if "to_date" in tool_args:
+                date_range += f" to {tool_args['to_date']}"
+            parts.append(date_range)
+        if parts:
+            return f"{tool_name}({', '.join(parts)})"
+        return f"{tool_name}()"
+
+    elif tool_name == "get_active_trading_signals":
+        # Trading signals: show status/ticker filter
+        parts = []
+        if "status" in tool_args:
+            parts.append(str(tool_args["status"]))
+        if "ticker" in tool_args:
+            parts.append(str(tool_args["ticker"]))
+        if parts:
+            return f"{tool_name}({', '.join(parts)})"
+        return f"{tool_name}()"
+
+    elif tool_name == "create_trading_signal":
+        # Create signal: show symbol and position
+        parts = []
+        if "symbol" in tool_args:
+            parts.append(str(tool_args["symbol"]))
+        if "position" in tool_args:
+            parts.append(str(tool_args["position"]).upper())
+        if parts:
+            return f"{tool_name}({' '.join(parts)})"
+
+    elif tool_name == "update_trading_signal":
+        # Update signal: show signal ID and status
+        parts = []
+        if "signal_id" in tool_args:
+            parts.append(f"#{tool_args['signal_id']}")
+        if "status" in tool_args:
+            parts.append(str(tool_args["status"]))
+        if parts:
+            return f"{tool_name}({', '.join(parts)})"
+
+    elif tool_name == "calculate_position_size":
+        # Position sizing: show symbol
+        if "symbol" in tool_args:
+            return f"{tool_name}({tool_args['symbol']})"
 
     elif tool_name == "write_todos":
         # Todos: show count of items

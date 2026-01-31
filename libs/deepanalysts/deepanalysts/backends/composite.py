@@ -40,7 +40,7 @@ class CompositeBackend(SandboxBackendProtocol):
             routes={
                 "/memories/": StoreBackend(rt),
                 "/skills/": StoreBackend(rt),
-            }
+            },
         )
         ```
 
@@ -65,9 +65,7 @@ class CompositeBackend(SandboxBackendProtocol):
         """
         self.default = default
         self.routes = routes
-        self.sorted_routes = sorted(
-            routes.items(), key=lambda x: len(x[0]), reverse=True
-        )
+        self.sorted_routes = sorted(routes.items(), key=lambda x: len(x[0]), reverse=True)
 
     def _get_backend_and_key(self, key: str) -> tuple[BackendProtocol, str]:
         """Get backend for path and strip route prefix.
@@ -108,9 +106,7 @@ class CompositeBackend(SandboxBackendProtocol):
             results: list[FileInfo] = []
             results.extend(self.default.ls_info(path))
             for route_prefix, _backend in self.sorted_routes:
-                results.append(
-                    {"path": route_prefix, "is_dir": True, "size": 0, "modified_at": ""}
-                )
+                results.append({"path": route_prefix, "is_dir": True, "size": 0, "modified_at": ""})
             results.sort(key=lambda x: x.get("path", ""))
             return results
 
@@ -136,9 +132,7 @@ class CompositeBackend(SandboxBackendProtocol):
         for route_prefix, backend in self.sorted_routes:
             if path is not None and path.startswith(route_prefix.rstrip("/")):
                 search_path = path[len(route_prefix) - 1 :]
-                raw = backend.grep_raw(
-                    pattern, search_path if search_path else "/", glob
-                )
+                raw = backend.grep_raw(pattern, search_path if search_path else "/", glob)
                 if isinstance(raw, str):
                     return raw
                 return [{**m, "path": f"{route_prefix[:-1]}{m['path']}"} for m in raw]
@@ -155,9 +149,7 @@ class CompositeBackend(SandboxBackendProtocol):
                 raw = backend.grep_raw(pattern, "/", glob)
                 if isinstance(raw, str):
                     return raw
-                all_matches.extend(
-                    {**m, "path": f"{route_prefix[:-1]}{m['path']}"} for m in raw
-                )
+                all_matches.extend({**m, "path": f"{route_prefix[:-1]}{m['path']}"} for m in raw)
 
             return all_matches
 
@@ -171,17 +163,13 @@ class CompositeBackend(SandboxBackendProtocol):
             if path.startswith(route_prefix.rstrip("/")):
                 search_path = path[len(route_prefix) - 1 :]
                 infos = backend.glob_info(pattern, search_path if search_path else "/")
-                return [
-                    {**fi, "path": f"{route_prefix[:-1]}{fi['path']}"} for fi in infos
-                ]
+                return [{**fi, "path": f"{route_prefix[:-1]}{fi['path']}"} for fi in infos]
 
         results.extend(self.default.glob_info(pattern, path))
 
         for route_prefix, backend in self.routes.items():
             infos = backend.glob_info(pattern, "/")
-            results.extend(
-                {**fi, "path": f"{route_prefix[:-1]}{fi['path']}"} for fi in infos
-            )
+            results.extend({**fi, "path": f"{route_prefix[:-1]}{fi['path']}"} for fi in infos)
 
         results.sort(key=lambda x: x.get("path", ""))
         return results
@@ -200,19 +188,21 @@ class CompositeBackend(SandboxBackendProtocol):
     ) -> EditResult:
         """Edit a file, routing to appropriate backend."""
         backend, stripped_key = self._get_backend_and_key(file_path)
-        return backend.edit(
-            stripped_key, old_string, new_string, replace_all=replace_all
-        )
+        return backend.edit(stripped_key, old_string, new_string, replace_all=replace_all)
 
     def execute(self, command: str) -> ExecuteResponse:
         """Execute shell command via default backend.
 
-        The default backend must implement SandboxBackendProtocol.
+        The default backend must implement SandboxBackendProtocol or provide
+        an ``execute()`` method (duck-typing).
 
         Raises:
             NotImplementedError: If default backend doesn't support execution.
         """
         if isinstance(self.default, SandboxBackendProtocol):
+            return self.default.execute(command)
+
+        if hasattr(self.default, "execute"):
             return self.default.execute(command)
 
         raise NotImplementedError(
@@ -224,6 +214,12 @@ class CompositeBackend(SandboxBackendProtocol):
         """Async version of execute."""
         if isinstance(self.default, SandboxBackendProtocol):
             return await self.default.aexecute(command)
+
+        if hasattr(self.default, "aexecute"):
+            return await self.default.aexecute(command)
+
+        if hasattr(self.default, "execute"):
+            return await asyncio.to_thread(self.default.execute, command)
 
         return await asyncio.to_thread(self.execute, command)
 
@@ -243,9 +239,7 @@ class CompositeBackend(SandboxBackendProtocol):
     def upload_files(self, files: list[tuple[str, bytes]]) -> list[FileUploadResponse]:
         """Upload multiple files, batching by backend for efficiency."""
         results: list[FileUploadResponse | None] = [None] * len(files)
-        backend_batches: dict[BackendProtocol, list[tuple[int, str, bytes]]] = (
-            defaultdict(list)
-        )
+        backend_batches: dict[BackendProtocol, list[tuple[int, str, bytes]]] = defaultdict(list)
 
         for idx, (path, content) in enumerate(files):
             backend, stripped_path = self._get_backend_and_key(path)
@@ -259,9 +253,7 @@ class CompositeBackend(SandboxBackendProtocol):
             for i, orig_idx in enumerate(indices):
                 results[orig_idx] = FileUploadResponse(
                     path=files[orig_idx][0],
-                    error=(
-                        batch_responses[i].error if i < len(batch_responses) else None
-                    ),
+                    error=(batch_responses[i].error if i < len(batch_responses) else None),
                 )
 
         return results  # type: ignore[return-value]
@@ -269,9 +261,7 @@ class CompositeBackend(SandboxBackendProtocol):
     def download_files(self, paths: list[str]) -> list[FileDownloadResponse]:
         """Download multiple files, batching by backend for efficiency."""
         results: list[FileDownloadResponse | None] = [None] * len(paths)
-        backend_batches: dict[BackendProtocol, list[tuple[int, str]]] = defaultdict(
-            list
-        )
+        backend_batches: dict[BackendProtocol, list[tuple[int, str]]] = defaultdict(list)
 
         for idx, path in enumerate(paths):
             backend, stripped_path = self._get_backend_and_key(path)
@@ -284,12 +274,8 @@ class CompositeBackend(SandboxBackendProtocol):
             for i, orig_idx in enumerate(indices):
                 results[orig_idx] = FileDownloadResponse(
                     path=paths[orig_idx],
-                    content=(
-                        batch_responses[i].content if i < len(batch_responses) else None
-                    ),
-                    error=(
-                        batch_responses[i].error if i < len(batch_responses) else None
-                    ),
+                    content=(batch_responses[i].content if i < len(batch_responses) else None),
+                    error=(batch_responses[i].error if i < len(batch_responses) else None),
                 )
 
         return results  # type: ignore[return-value]

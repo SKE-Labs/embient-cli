@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from rich.text import Text
 from textual.containers import Horizontal, Vertical
@@ -164,6 +164,36 @@ class AssistantMessage(Horizontal):
             await self._markdown.update(content)
 
 
+class SubToolLine(Static):
+    """Lightweight widget for a nested sub-tool call inside a task block.
+
+    Shows status as:  > tool_label (pending) -> checkmark tool_label (success) -> x tool_label (error)
+    """
+
+    DEFAULT_CSS = """
+    SubToolLine {
+        height: auto;
+        margin: 0 0 0 2;
+        color: $text-muted;
+    }
+    """
+
+    def __init__(self, tool_name: str, args: dict[str, Any] | None = None, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._tool_name = tool_name
+        self._args = args or {}
+        self._label = format_tool_display(tool_name, self._args)
+
+    def on_mount(self) -> None:
+        self.update(Text.assemble(("\u203a ", "dim"), (self._label, "")))
+
+    def mark_success(self) -> None:
+        self.update(Text.assemble(("✓ ", "green"), (self._label, "")))
+
+    def mark_error(self) -> None:
+        self.update(Text.assemble(("✗ ", "red"), (self._label, "")))
+
+
 class ToolCallMessage(Vertical):
     """Widget displaying a tool call with collapsible output.
 
@@ -222,6 +252,11 @@ class ToolCallMessage(Vertical):
         margin-left: 2;
     }
 
+    ToolCallMessage #sub-tools {
+        height: auto;
+        margin: 0 0 0 1;
+    }
+
     ToolCallMessage .tool-output {
         margin-left: 2;
         margin-top: 1;
@@ -274,6 +309,7 @@ class ToolCallMessage(Vertical):
         self._status = "pending"
         self._output: str = ""
         self._expanded: bool = False
+        self._sub_tool_calls: dict[str, SubToolLine] = {}
         # Widget references (set in on_mount)
         self._header_widget: Static | None = None
         self._preview_widget: Static | None = None
@@ -292,12 +328,28 @@ class ToolCallMessage(Vertical):
         if self._source_agent:
             agent_display = self._source_agent.replace("_", " ").title()
             yield Static(f"via {agent_display}", classes="tool-source")
-        args = self._filtered_args()
-        if args:
-            args_str = ", ".join(f"{k}={v!r}" for k, v in list(args.items())[:_MAX_INLINE_ARGS])
-            if len(args) > _MAX_INLINE_ARGS:
-                args_str += ", ..."
-            yield Static(f"({args_str})", classes="tool-args")
+        # Task tool: show first line of description as a clean summary
+        if self._tool_name == "task" and "description" in self._args:
+            desc = str(self._args["description"])
+            first_line = desc.split("\n")[0].strip()
+            if len(first_line) > 120:
+                first_line = first_line[:120] + "..."
+            yield Static(first_line, classes="tool-args", markup=False)
+        # write_todos: render a numbered checklist with styled icons
+        elif self._tool_name == "write_todos":
+            checklist = self._format_todos_checklist(self._args.get("todos", []))
+            if checklist.plain:
+                yield Static(checklist, classes="tool-args")
+        else:
+            args = self._filtered_args()
+            if args:
+                args_str = ", ".join(f"{k}={v!r}" for k, v in list(args.items())[:_MAX_INLINE_ARGS])
+                if len(args) > _MAX_INLINE_ARGS:
+                    args_str += ", ..."
+                yield Static(f"({args_str})", classes="tool-args")
+        # Sub-tools container for task-type tools (subagent calls nest here)
+        if self._tool_name == "task":
+            yield Vertical(id="sub-tools")
         # Output area - hidden initially, shown when output is set
         # Use markup=False for output content to prevent Rich markup injection
         yield Static("", classes="tool-output-preview", id="output-preview", markup=False)
@@ -333,7 +385,7 @@ class ToolCallMessage(Vertical):
             result: Tool output/result to display
         """
         self._status = "success"
-        self._output = result
+        self._output = self._format_result(result)
         self._update_header("[green]\u2713[/green]", "success")
         self._update_output_display()
 
@@ -424,16 +476,109 @@ class ToolCallMessage(Vertical):
         """Check if this tool message has output to display."""
         return bool(self._output)
 
-    def _filtered_args(self) -> dict[str, Any]:
-        """Filter large tool args for display."""
-        if self._tool_name not in {"write_file", "edit_file"}:
-            return self._args
+    async def add_sub_tool(self, tool_call_id: str, tool_name: str, args: dict[str, Any] | None = None) -> None:
+        """Add a nested sub-tool call inside this task block.
 
-        filtered: dict[str, Any] = {}
-        for key in ("file_path", "path", "replace_all"):
-            if key in self._args:
-                filtered[key] = self._args[key]
-        return filtered
+        Args:
+            tool_call_id: Unique ID for the tool call
+            tool_name: Name of the tool
+            args: Tool arguments
+        """
+        if tool_call_id in self._sub_tool_calls:
+            return
+        sub_tool = SubToolLine(tool_name, args)
+        self._sub_tool_calls[tool_call_id] = sub_tool
+        try:
+            container = self.query_one("#sub-tools", Vertical)
+            await container.mount(sub_tool)
+        except Exception:
+            pass
+
+    def complete_sub_tool(self, tool_call_id: str, *, success: bool = True) -> None:
+        """Update a sub-tool's status icon.
+
+        Args:
+            tool_call_id: The tool call ID to update
+            success: Whether the tool succeeded
+        """
+        sub_tool = self._sub_tool_calls.get(tool_call_id)
+        if sub_tool is None:
+            return
+        if success:
+            sub_tool.mark_success()
+        else:
+            sub_tool.mark_error()
+
+    @staticmethod
+    def _format_todos_checklist(todos: list) -> Text:
+        """Format a list of todo dicts as a numbered checklist with styled icons."""
+        text = Text()
+        for i, todo in enumerate(todos, 1):
+            if isinstance(todo, dict):
+                content = todo.get("content", "")
+                status = todo.get("status", "pending")
+                if i > 1:
+                    text.append("\n")
+                text.append(f"{i}. ")
+                if status in ("completed", "done"):
+                    text.append("✓ ", style="green")
+                else:
+                    text.append("○ ", style="dim")
+                text.append(content)
+        return text
+
+    def _format_result(self, result: str) -> str:
+        """Format tool result for cleaner display."""
+        if self._tool_name == "write_todos":
+            # Render as a checklist using the args data (more reliable than parsing output)
+            todos = self._args.get("todos", [])
+            if isinstance(todos, list) and todos:
+                checklist = self._format_todos_checklist(todos)
+                if checklist.plain:
+                    return checklist.plain
+        return result
+
+    # Args already represented in the header by format_tool_display.
+    # These are excluded from the secondary args line to avoid redundancy.
+    _HEADER_SHOWN_ARGS: ClassVar[dict[str, set[str]]] = {
+        "task": {"description", "subagent_type"},
+        "web_search": {"query"},
+        "get_financial_news": {"topic"},
+        "get_fundamentals": {"ticker", "data_type"},
+        "get_latest_candle": {"symbol"},
+        "get_candles_around_date": {"symbol", "date"},
+        "get_indicator": {"indicator", "symbol"},
+        "get_economics_calendar": {"from_date", "to_date", "country", "impact", "event"},
+        "get_active_trading_signals": {"status", "ticker"},
+        "create_trading_signal": {"symbol", "position"},
+        "update_trading_signal": {"signal_id", "status"},
+        "calculate_position_size": {"symbol"},
+        "read_file": {"file_path", "path"},
+        "grep": {"pattern"},
+        "shell": {"command"},
+        "ls": {"path"},
+        "glob": {"pattern"},
+        "http_request": {"method", "url"},
+        "fetch_url": {"url"},
+        "write_todos": {"todos"},
+    }
+
+    def _filtered_args(self) -> dict[str, Any]:
+        """Filter tool args for display, excluding args already shown in the header."""
+        # File tools: only show specific metadata keys
+        if self._tool_name in ("write_file", "edit_file"):
+            filtered: dict[str, Any] = {}
+            for key in ("file_path", "path", "replace_all"):
+                if key in self._args:
+                    filtered[key] = self._args[key]
+            return filtered
+
+        # For tools with smart header formatting, exclude primary args
+        excluded = self._HEADER_SHOWN_ARGS.get(self._tool_name)
+        if excluded:
+            return {k: v for k, v in self._args.items() if k not in excluded}
+
+        return self._args
 
 
 class DiffMessage(Static):

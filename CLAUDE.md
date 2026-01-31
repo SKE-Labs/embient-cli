@@ -393,7 +393,7 @@ Remote code execution via `--sandbox` flag:
 
 | Provider | Flag | Backend |
 |----------|------|---------|
-| Local (default) | `--sandbox none` | `FilesystemBackend` |
+| Local (default) | `--sandbox none` | `FilesystemBackend` (with local `execute()` support) |
 | Modal | `--sandbox modal` | `ModalBackend` |
 | Daytona | `--sandbox daytona` | `DaytonaBackend` |
 | RunLoop | `--sandbox runloop` | `RunLoopBackend` |
