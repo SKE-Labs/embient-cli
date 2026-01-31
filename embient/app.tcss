@@ -32,6 +32,13 @@ Screen {
     height: auto;
 }
 
+/* Persistent todo list */
+#todo-list {
+    height: auto;
+    margin: 1 0 0 0;
+    padding: 0 1;
+}
+
 /* Bottom app container - holds ChatInput (now inside scroll) */
 #bottom-app-container {
     height: auto;

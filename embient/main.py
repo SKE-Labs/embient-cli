@@ -30,7 +30,6 @@ from embient.auth import get_cli_token, is_authenticated, login_command, logout_
 from embient.config import (
     console,
     create_model,
-    settings,
 )
 from embient.context import set_auth_token
 from embient.integrations.sandbox_factory import create_sandbox

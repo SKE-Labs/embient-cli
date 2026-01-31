@@ -38,6 +38,7 @@ def is_retryable_exception(exc: BaseException) -> bool:
     - httpx timeout and connection errors
     - Server errors (5xx status codes)
     - Rate limit errors (429)
+    - Google Generative AI errors (ServerError, TooManyRequestsError, TypeError bug)
     """
     # Custom RetryableError is always retryable
     if isinstance(exc, RetryableError):
@@ -52,6 +53,14 @@ def is_retryable_exception(exc: BaseException) -> bool:
         status = exc.response.status_code
         # 5xx server errors and 429 rate limits are retryable
         if status >= 500 or status == 429:
+            return True
+
+    # Handle the google-genai TypeError bug (issue #1897)
+    # This occurs when the API returns a 500 error with aiohttp backend
+    if isinstance(exc, TypeError):
+        error_msg = str(exc)
+        if "'ClientResponse' object is not subscriptable" in error_msg:
+            logger.warning("Caught google-genai TypeError bug (#1897), retrying...")
             return True
 
     # Check exception class name for library-specific errors

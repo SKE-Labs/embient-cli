@@ -12,6 +12,7 @@ from embient.widgets.messages import (
     UserMessage,
 )
 from embient.widgets.status import StatusBar
+from embient.widgets.todo_list import TodoListWidget
 from embient.widgets.welcome import WelcomeBanner
 
 __all__ = [
@@ -21,6 +22,7 @@ __all__ = [
     "ErrorMessage",
     "StatusBar",
     "SystemMessage",
+    "TodoListWidget",
     "ToolCallMessage",
     "UserMessage",
     "WelcomeBanner",

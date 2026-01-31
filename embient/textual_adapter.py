@@ -138,6 +138,7 @@ class TextualUIAdapter:
         scroll_to_bottom: Callable[[], None] | None = None,
         show_thinking: Callable[[], None] | None = None,
         hide_thinking: Callable[[], None] | None = None,
+        update_todos: Callable[[list[dict]], None] | None = None,
     ) -> None:
         """Initialize the adapter.
 
@@ -149,6 +150,7 @@ class TextualUIAdapter:
             scroll_to_bottom: Callback to scroll chat to bottom
             show_thinking: Callback to show/reposition thinking spinner
             hide_thinking: Callback to hide thinking spinner
+            update_todos: Callback to update the persistent todo list widget
         """
         self._mount_message = mount_message
         self._update_status = update_status
@@ -157,6 +159,7 @@ class TextualUIAdapter:
         self._scroll_to_bottom = scroll_to_bottom
         self._show_thinking = show_thinking
         self._hide_thinking = hide_thinking
+        self._update_todos = update_todos
 
         # State tracking
         self._current_assistant_message: AssistantMessage | None = None
@@ -352,10 +355,11 @@ async def execute_task_textual(
                                 except ValidationError:
                                     raise
 
-                    # Check for todo updates (not yet implemented in Textual UI)
+                    # Push todo updates to the persistent widget
                     chunk_data = next(iter(data.values())) if data else None
                     if chunk_data and isinstance(chunk_data, dict) and "todos" in chunk_data:
-                        pass  # Future: render todo list widget
+                        if adapter._update_todos:
+                            adapter._update_todos(chunk_data["todos"])
 
                 # Handle MESSAGES stream - for content and tool calls
                 elif current_stream_mode == "messages":

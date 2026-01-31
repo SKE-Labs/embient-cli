@@ -85,8 +85,17 @@ You can configure default trading parameters via environment variables or a conf
 ## 🧪 Development
 
 ```bash
-# Run tests
-uv run pytest
+# Install test dependencies (pytest is in the "test" dependency group)
+uv sync --group test
+
+# Run all unit tests
+uv run pytest tests/unit_tests/
+
+# Run a specific test file
+uv run pytest tests/unit_tests/test_messages.py
+
+# Run with coverage
+uv run pytest tests/unit_tests/ --cov=embient --cov-report=term-missing
 
 # Lint and format
 uv run ruff check .

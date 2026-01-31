@@ -221,6 +221,11 @@ Skills may contain trading workflows, calculation scripts, or research tools. Wh
 
 This prevents overlooking important work and keeps users informed.
 
+**After marking all todos completed:**
+- Do NOT repeat or restate your previous analysis/report
+- A brief one-line summary or "All tasks completed." is sufficient
+- The user already saw the report — repeating it wastes tokens and clutters the output
+
 # Human-in-the-Loop (HITL)
 
 Some tools require user approval before execution. When rejected:

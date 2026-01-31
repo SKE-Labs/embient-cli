@@ -33,6 +33,7 @@ from embient.widgets.messages import (
     UserMessage,
 )
 from embient.widgets.status import StatusBar
+from embient.widgets.todo_list import TodoListWidget
 from embient.widgets.welcome import WelcomeBanner
 
 if TYPE_CHECKING:
@@ -306,6 +307,7 @@ class EmbientApp(App):
         self._agent_running = False
         self._loading_widget: LoadingWidget | None = None
         self._token_tracker: TextualTokenTracker | None = None
+        self._todo_widget: TodoListWidget | None = None
 
     def compose(self) -> ComposeResult:
         """Compose the application layout."""
@@ -370,6 +372,7 @@ class EmbientApp(App):
                 scroll_to_bottom=self._scroll_chat_to_bottom,
                 show_thinking=self._show_thinking,
                 hide_thinking=self._hide_thinking,
+                update_todos=self._update_todos,
             )
             self._ui_adapter.set_token_tracker(self._token_tracker)
 
@@ -428,6 +431,23 @@ class EmbientApp(App):
         if self._loading_widget:
             await self._loading_widget.remove()
             self._loading_widget = None
+
+    def _update_todos(self, todos: list[dict]) -> None:
+        """Update the persistent todo list widget.
+
+        Creates the widget on first call and mounts it after ``#messages``.
+        Subsequent calls update in place.
+
+        Args:
+            todos: List of todo dicts with ``content`` and ``status`` keys.
+        """
+        if self._todo_widget is None:
+            self._todo_widget = TodoListWidget(id="todo-list")
+            # mount synchronously from the app thread
+            chat = self.query_one("#chat", VerticalScroll)
+            messages = self.query_one("#messages", Container)
+            chat.mount(self._todo_widget, after=messages)
+        self._todo_widget.update_todos(todos)
 
     def _size_initial_spacer(self) -> None:
         """Size the spacer to fill remaining viewport below input."""
@@ -900,13 +920,19 @@ class EmbientApp(App):
         input_container.scroll_visible()
 
     async def _clear_messages(self) -> None:
-        """Clear the messages area."""
+        """Clear the messages area and remove todo widget."""
         try:
             messages = self.query_one("#messages", Container)
             await messages.remove_children()
         except NoMatches:
             # Widget not found - can happen during shutdown
             pass
+        if self._todo_widget is not None:
+            try:
+                await self._todo_widget.remove()
+            except Exception:
+                pass
+            self._todo_widget = None
 
     def action_quit_or_interrupt(self) -> None:
         """Handle Ctrl+C - interrupt agent, reject approval, or quit on double press.

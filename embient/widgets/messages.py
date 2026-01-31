@@ -335,11 +335,9 @@ class ToolCallMessage(Vertical):
             if len(first_line) > 120:
                 first_line = first_line[:120] + "..."
             yield Static(first_line, classes="tool-args", markup=False)
-        # write_todos: render a numbered checklist with styled icons
+        # write_todos: persistent widget handles display, skip inline checklist
         elif self._tool_name == "write_todos":
-            checklist = self._format_todos_checklist(self._args.get("todos", []))
-            if checklist.plain:
-                yield Static(checklist, classes="tool-args")
+            pass
         else:
             args = self._filtered_args()
             if args:
@@ -530,12 +528,8 @@ class ToolCallMessage(Vertical):
     def _format_result(self, result: str) -> str:
         """Format tool result for cleaner display."""
         if self._tool_name == "write_todos":
-            # Render as a checklist using the args data (more reliable than parsing output)
-            todos = self._args.get("todos", [])
-            if isinstance(todos, list) and todos:
-                checklist = self._format_todos_checklist(todos)
-                if checklist.plain:
-                    return checklist.plain
+            # Persistent todo widget handles display; suppress output panel
+            return ""
         return result
 
     # Args already represented in the header by format_tool_display.
