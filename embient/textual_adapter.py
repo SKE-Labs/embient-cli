@@ -695,6 +695,9 @@ async def execute_task_textual(
 
                 stream_input = Command(resume=hitl_response)
             else:
+                # Clear the todo list when stream is fully done
+                if adapter._update_todos:
+                    adapter._update_todos([])
                 break
 
     except asyncio.CancelledError:
