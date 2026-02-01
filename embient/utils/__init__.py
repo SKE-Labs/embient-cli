@@ -1,6 +1,6 @@
 """Utility modules for embient CLI."""
 
-from embient.utils.retry import RetryableError, create_async_retry, is_retryable_exception
+from deepanalysts.utils.retry import RetryableError, create_async_retry, is_retryable_exception
 
 __all__ = [
     "RetryableError",

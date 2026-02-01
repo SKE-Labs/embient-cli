@@ -562,39 +562,7 @@ def create_model(model_name_override: str | None = None) -> BaseChatModel:
         except Exception:
             pass
 
-        # Subclass with retry for transient Google API errors (500, 429, etc.)
-        # Overrides _astream to retry on ServerError, TooManyRequestsError, and
-        # the google-genai TypeError bug (#1897). Only retries if no chunks have
-        # been yielded yet (safe to restart the stream from scratch).
-        class _RetryGoogleModel(ChatGoogleGenerativeAI):  # type: ignore[misc]
-            async def _astream(self, messages, stop=None, run_manager=None, **kwargs):
-                import asyncio
-                import logging
-
-                from embient.utils.retry import is_retryable_exception
-
-                _logger = logging.getLogger("embient.config")
-                max_attempts = 3
-                for attempt in range(max_attempts):
-                    yielded = False
-                    try:
-                        async for chunk in super()._astream(
-                            messages, stop=stop, run_manager=run_manager, **kwargs
-                        ):
-                            yielded = True
-                            yield chunk
-                        return
-                    except Exception as e:
-                        if yielded or not is_retryable_exception(e) or attempt >= max_attempts - 1:
-                            raise
-                        wait = min(2**attempt, 8)
-                        _logger.warning(
-                            f"LLM retry {attempt + 2}/{max_attempts} after: {e}, "
-                            f"waiting {wait}s"
-                        )
-                        await asyncio.sleep(wait)
-
-        return _RetryGoogleModel(
+        return ChatGoogleGenerativeAI(
             model=model_name,
             temperature=0,
             max_tokens=None,
