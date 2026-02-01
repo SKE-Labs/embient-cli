@@ -373,12 +373,17 @@ class BasementClient:
 
         Returns:
             Portfolio summary dictionary with fields:
+            - account_balance: Total account balance from profile
+            - available_balance: Available balance for trading
+            - margin_used: Margin locked in open positions
             - open_positions: List of open position dicts
             - total_positions: Number of open positions
-            - total_capital_allocated: Total capital allocated
-            - total_unrealized_pnl: Total unrealized P&L
+            - total_unrealized_pnl: Total unrealized P&L (live-calculated)
             - total_roi_percentage: Total ROI percentage
-            - total_margin_used: Total margin used
+            - total_realized_pnl: Sum of realized P&L across closed trades
+            - win_rate: Win rate percentage across closed trades
+            - total_closed_trades: Total number of closed trades
+            - avg_risk_reward: Average risk-reward ratio
             Or None on failure
         """
         try:

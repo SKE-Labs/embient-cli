@@ -272,8 +272,13 @@ signals = await basement_client.get_trading_signals(token, status="active", tick
 result = await basement_client.create_trading_signal(token, **signal_data)
 result = await basement_client.update_trading_signal(token, signal_id, **updates)
 
-# User profile
+# User profile & portfolio
 profile = await basement_client.get_user_profile(token)
+portfolio = await basement_client.get_portfolio_summary(token)
+
+# Favorite tickers & stats
+favorites = await basement_client.get_favorite_tickers(token)
+stats = await basement_client.get_ticker_stats(token, "X:BTC/USDT")
 
 # Economics calendar
 events = await basement_client.get_economics_calendar(token, from_date="2025-07-01", to_date="2025-07-07", impact="High")
