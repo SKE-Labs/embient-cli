@@ -314,9 +314,10 @@ class EmbientApp(App):
         # Gather context info for welcome banner
         agent_info = get_agent_context_info(self._assistant_id)
 
-        # Load user email from credentials
+        # Load user email and auth token from credentials
         creds = load_credentials()
         user_email = creds.email if creds else None
+        auth_token = creds.cli_token if creds else None
 
         # Load trading config (always load; widget shows section only when not None)
         trading_config: TradingConfig | None = None
@@ -334,6 +335,7 @@ class EmbientApp(App):
                 cwd=self._cwd,
                 user_email=user_email,
                 trading_config=trading_config,
+                auth_token=auth_token,
                 id="welcome-banner",
             )
             yield Container(id="messages")

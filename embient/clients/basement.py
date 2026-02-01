@@ -30,6 +30,7 @@ class AuthenticationError(Exception):
 
     pass
 
+
 BASEMENT_API_URL = os.environ.get("BASEMENT_API", "https://basement.embient.ai")
 
 
@@ -101,12 +102,8 @@ class BasementClient:
                         return result.get("signals", [])
                     return None
                 if response.status_code in (401, 403):
-                    raise AuthenticationError(
-                        "Session expired or invalid. Run 'embient login' to re-authenticate."
-                    )
-                logger.error(
-                    f"Failed to get trading signals: {response.status_code} - {response.text}"
-                )
+                    raise AuthenticationError("Session expired or invalid. Run 'embient login' to re-authenticate.")
+                logger.error(f"Failed to get trading signals: {response.status_code} - {response.text}")
                 return None
 
         except httpx.TimeoutException:
@@ -213,12 +210,8 @@ class BasementClient:
                     logger.info(f"Created trading signal for {symbol}")
                     return data.get("response")
                 if response.status_code in (401, 403):
-                    raise AuthenticationError(
-                        "Session expired or invalid. Run 'embient login' to re-authenticate."
-                    )
-                logger.error(
-                    f"Failed to create signal: {response.status_code} - {response.text}"
-                )
+                    raise AuthenticationError("Session expired or invalid. Run 'embient login' to re-authenticate.")
+                logger.error(f"Failed to create signal: {response.status_code} - {response.text}")
                 return None
 
         except httpx.TimeoutException:
@@ -316,12 +309,8 @@ class BasementClient:
                     logger.info(f"Updated trading signal ID {signal_id}")
                     return data.get("response")
                 if response.status_code in (401, 403):
-                    raise AuthenticationError(
-                        "Session expired or invalid. Run 'embient login' to re-authenticate."
-                    )
-                logger.error(
-                    f"Failed to update signal: {response.status_code} - {response.text}"
-                )
+                    raise AuthenticationError("Session expired or invalid. Run 'embient login' to re-authenticate.")
+                logger.error(f"Failed to update signal: {response.status_code} - {response.text}")
                 return None
 
         except httpx.TimeoutException:
@@ -363,12 +352,8 @@ class BasementClient:
                     data = response.json()
                     return data.get("response", {})
                 if response.status_code in (401, 403):
-                    raise AuthenticationError(
-                        "Session expired or invalid. Run 'embient login' to re-authenticate."
-                    )
-                logger.error(
-                    f"Failed to fetch profile: {response.status_code} - {response.text}"
-                )
+                    raise AuthenticationError("Session expired or invalid. Run 'embient login' to re-authenticate.")
+                logger.error(f"Failed to fetch profile: {response.status_code} - {response.text}")
                 return None
 
         except httpx.TimeoutException:
@@ -378,6 +363,119 @@ class BasementClient:
             raise
         except Exception as e:
             logger.error(f"Error fetching user profile: {e}")
+            return None
+
+    async def get_portfolio_summary(self, token: str) -> dict | None:
+        """Retrieve portfolio summary for the authenticated user.
+
+        Args:
+            token: JWT authentication token
+
+        Returns:
+            Portfolio summary dictionary with fields:
+            - open_positions: List of open position dicts
+            - total_positions: Number of open positions
+            - total_capital_allocated: Total capital allocated
+            - total_unrealized_pnl: Total unrealized P&L
+            - total_roi_percentage: Total ROI percentage
+            - total_margin_used: Total margin used
+            Or None on failure
+        """
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v1/trading-signals/portfolio",
+                    headers=self._headers(token),
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get("response", {})
+                if response.status_code in (401, 403):
+                    raise AuthenticationError("Session expired or invalid. Run 'embient login' to re-authenticate.")
+                logger.error(f"Failed to fetch portfolio summary: {response.status_code} - {response.text}")
+                return None
+
+        except httpx.TimeoutException:
+            logger.error("Timeout while fetching portfolio summary")
+            return None
+        except AuthenticationError:
+            raise
+        except Exception as e:
+            logger.error(f"Error fetching portfolio summary: {e}")
+            return None
+
+    # =========================================================================
+    # Favorite Tickers
+    # =========================================================================
+
+    async def get_favorite_tickers(self, token: str) -> list[dict] | None:
+        """Retrieve the user's favorite/watchlist tickers.
+
+        Args:
+            token: JWT authentication token
+
+        Returns:
+            List of ticker dicts or None on failure
+        """
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v1/favorite-tickers",
+                    headers=self._headers(token),
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get("response", [])
+                if response.status_code in (401, 403):
+                    raise AuthenticationError("Session expired or invalid. Run 'embient login' to re-authenticate.")
+                logger.error(f"Failed to get favorite tickers: {response.status_code} - {response.text}")
+                return None
+
+        except httpx.TimeoutException:
+            logger.error("Timeout while fetching favorite tickers")
+            return None
+        except AuthenticationError:
+            raise
+        except Exception as e:
+            logger.error(f"Error fetching favorite tickers: {e}")
+            return None
+
+    async def get_ticker_stats(self, token: str, symbol: str) -> dict | None:
+        """Get price stats for a ticker symbol.
+
+        Args:
+            token: JWT authentication token
+            symbol: Ticker symbol (e.g., "X:BTC/USDT")
+
+        Returns:
+            Dict with currentPrice, priceChange, priceChangePercent, etc.
+            or None on failure
+        """
+        try:
+            from urllib.parse import quote
+
+            encoded_symbol = quote(symbol, safe="")
+
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v1/tickers/{encoded_symbol}/stats",
+                    headers=self._headers(token),
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get("response", {})
+                if response.status_code in (401, 403):
+                    raise AuthenticationError("Session expired or invalid. Run 'embient login' to re-authenticate.")
+                return None
+
+        except httpx.TimeoutException:
+            return None
+        except AuthenticationError:
+            raise
+        except Exception:
             return None
 
     # =========================================================================
@@ -407,6 +505,7 @@ class BasementClient:
         try:
             # URL-encode the symbol (e.g., BTC/USDT -> BTC%2FUSDT)
             from urllib.parse import quote
+
             encoded_symbol = quote(symbol, safe="")
 
             # Build URL with path parameters
@@ -424,16 +523,12 @@ class BasementClient:
                     data = response.json()
                     return data.get("response", [])
                 if response.status_code in (401, 403):
-                    raise AuthenticationError(
-                        "Session expired or invalid. Run 'embient login' to re-authenticate."
-                    )
+                    raise AuthenticationError("Session expired or invalid. Run 'embient login' to re-authenticate.")
 
                 # Log and raise for other errors
                 error_detail = response.text
                 logger.error(f"Failed to fetch candles: {response.status_code} - {error_detail}")
-                raise Exception(
-                    f"API returned {response.status_code}: {error_detail[:200]}"
-                )
+                raise Exception(f"API returned {response.status_code}: {error_detail[:200]}")
 
         except httpx.TimeoutException as e:
             logger.error("Timeout while fetching candles")
@@ -510,16 +605,12 @@ class BasementClient:
                     data = response.json()
                     return data.get("response", {})
                 if response.status_code in (401, 403):
-                    raise AuthenticationError(
-                        "Session expired or invalid. Run 'embient login' to re-authenticate."
-                    )
+                    raise AuthenticationError("Session expired or invalid. Run 'embient login' to re-authenticate.")
 
                 # Log and raise for other errors
                 error_detail = response.text
                 logger.error(f"Failed to fetch indicator: {response.status_code} - {error_detail}")
-                raise Exception(
-                    f"API returned {response.status_code}: {error_detail[:200]}"
-                )
+                raise Exception(f"API returned {response.status_code}: {error_detail[:200]}")
 
         except httpx.TimeoutException as e:
             logger.error("Timeout while fetching indicator")
@@ -580,12 +671,8 @@ class BasementClient:
                     data = response.json()
                     return data.get("response", [])
                 if response.status_code in (401, 403):
-                    raise AuthenticationError(
-                        "Session expired or invalid. Run 'embient login' to re-authenticate."
-                    )
-                logger.error(
-                    f"Failed to get economics calendar: {response.status_code} - {response.text}"
-                )
+                    raise AuthenticationError("Session expired or invalid. Run 'embient login' to re-authenticate.")
+                logger.error(f"Failed to get economics calendar: {response.status_code} - {response.text}")
                 return None
 
         except httpx.TimeoutException:
@@ -621,12 +708,8 @@ class BasementClient:
                     data = response.json()
                     return data.get("response", [])
                 if response.status_code in (401, 403):
-                    raise AuthenticationError(
-                        "Session expired or invalid. Run 'embient login' to re-authenticate."
-                    )
-                logger.error(
-                    f"Failed to get memories: {response.status_code} - {response.text}"
-                )
+                    raise AuthenticationError("Session expired or invalid. Run 'embient login' to re-authenticate.")
+                logger.error(f"Failed to get memories: {response.status_code} - {response.text}")
                 return []
 
         except httpx.TimeoutException:
@@ -665,12 +748,8 @@ class BasementClient:
                     data = response.json()
                     return data.get("response", [])
                 if response.status_code in (401, 403):
-                    raise AuthenticationError(
-                        "Session expired or invalid. Run 'embient login' to re-authenticate."
-                    )
-                logger.error(
-                    f"Failed to get skills: {response.status_code} - {response.text}"
-                )
+                    raise AuthenticationError("Session expired or invalid. Run 'embient login' to re-authenticate.")
+                logger.error(f"Failed to get skills: {response.status_code} - {response.text}")
                 return []
 
         except httpx.TimeoutException:
