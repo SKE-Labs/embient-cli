@@ -10,7 +10,6 @@ from deepanalysts.middleware.subagents import (
     CompiledSubAgent,
     SubAgent,
     SubAgentMiddleware,
-    build_session_context,
 )
 from deepanalysts.middleware.summarization import SummarizationMiddleware, TruncateArgsSettings
 from deepanalysts.middleware.tool_errors import ToolErrorHandlingMiddleware
@@ -32,6 +31,4 @@ __all__ = [
     # Constants
     "TASK_SYSTEM_PROMPT",
     "TASK_TOOL_DESCRIPTION",
-    # Utility functions
-    "build_session_context",
 ]

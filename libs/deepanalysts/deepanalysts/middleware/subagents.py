@@ -1,12 +1,10 @@
 """Adapted SubAgentMiddleware for middleware-based subagent orchestration.
 
 Provides the `task` tool for delegating work to specialized subagents.
-Includes automatic injection of session context (datetime, symbol, exchange, interval).
 """
 
 import logging
 from collections.abc import Awaitable, Callable, Sequence
-from datetime import UTC, datetime
 from typing import Any, NotRequired, TypedDict, cast
 
 from langchain.agents import create_agent
@@ -71,36 +69,6 @@ DEFAULT_SUBAGENT_PROMPT = "Complete the task given to you using the available to
 # 2. The todos and structured_response keys are excluded as they do not have a defined reducer
 #    and no clear meaning for returning them from a subagent to the main agent.
 _EXCLUDED_STATE_KEYS = {"messages", "todos", "structured_response"}
-
-
-def _build_session_context(config: dict | None) -> str | None:
-    """Build session context string from config.configurable.
-
-    Extracts symbol, exchange, interval from config and includes current datetime.
-    Returns None if no relevant session info is available.
-    """
-    if not config:
-        return None
-
-    configurable = config.get("configurable", {})
-    symbol = configurable.get("symbol")
-    exchange = configurable.get("exchange")
-    interval = configurable.get("interval")
-
-    if not any([symbol, exchange, interval]):
-        return None
-
-    current_time = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
-    parts = [f"## Session Context\n- **Current Time**: {current_time}"]
-
-    if symbol:
-        parts.append(f"- **Symbol**: {symbol}")
-    if exchange:
-        parts.append(f"- **Exchange**: {exchange}")
-    if interval:
-        parts.append(f"- **Interval**: {interval}")
-
-    return "\n".join(parts)
 
 
 TASK_TOOL_DESCRIPTION = """Launch a specialized analyst subagent for trading tasks.
@@ -286,14 +254,7 @@ def _create_task_tool(
             k: v for k, v in runtime.state.items() if k not in _EXCLUDED_STATE_KEYS
         }
 
-        # Inject session context into the task description
-        session_context = _build_session_context(runtime.config)
-        if session_context:
-            task_content = f"{session_context}\n\n## Task\n{description}"
-        else:
-            task_content = description
-
-        subagent_state["messages"] = [HumanMessage(content=task_content)]
+        subagent_state["messages"] = [HumanMessage(content=description)]
         return subagent, subagent_state
 
     def task(
@@ -430,24 +391,11 @@ class SubAgentMiddleware(AgentMiddleware):
         return await handler(request)
 
 
-# Helper function for building session context (exported for external use)
-def build_session_context(config: dict[str, Any] | None) -> str | None:
-    """Build session context string from config.
-
-    Args:
-        config: Config dict with configurable section
-
-    Returns:
-        Formatted session context string, or None if no context available
-    """
-    return _build_session_context(config)
-
 
 __all__ = [
     "SubAgent",
     "CompiledSubAgent",
     "SubAgentMiddleware",
-    "build_session_context",
     "TASK_TOOL_DESCRIPTION",
     "TASK_SYSTEM_PROMPT",
 ]

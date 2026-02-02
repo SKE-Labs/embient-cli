@@ -78,12 +78,6 @@ class CompletionController(Protocol):
 SLASH_COMMANDS: list[tuple[str, str]] = [
     ("/help", "Show help"),
     ("/clear", "Clear chat and start new session"),
-    ("/config", "Show/set trading configuration"),
-    ("/config symbol", "Set default symbol (e.g., BTC/USDT)"),
-    ("/config exchange", "Set default exchange (e.g., binance)"),
-    ("/config interval", "Set default interval (e.g., 4h)"),
-    ("/config position-size", "Set default position size (%)"),
-    ("/config max-leverage", "Set max leverage"),
     ("/remember", "Update memory and skills from conversation"),
     ("/quit", "Exit app"),
     ("/exit", "Exit app"),

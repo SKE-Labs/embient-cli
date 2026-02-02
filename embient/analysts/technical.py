@@ -4,6 +4,7 @@ from deepanalysts import SubAgent
 from langchain_core.language_models import BaseChatModel
 
 from embient.trading_tools import (
+    generate_chart,
     get_candles_around_date,
     get_indicator,
     get_latest_candle,
@@ -87,6 +88,7 @@ def get_technical_analyst(model: BaseChatModel) -> SubAgent:
         ),
         "system_prompt": TECHNICAL_ANALYST_PROMPT,
         "tools": [
+            generate_chart,
             get_latest_candle,
             get_indicator,
             get_candles_around_date,

@@ -4,6 +4,7 @@ All tools use the Basement API for data access.
 """
 
 from embient.trading_tools.market_data import (
+    generate_chart,
     get_candles_around_date,
     get_indicator,
     get_latest_candle,
@@ -23,6 +24,7 @@ from embient.trading_tools.signals import (
 
 __all__ = [
     # Market Data
+    "generate_chart",
     "get_latest_candle",
     "get_candles_around_date",
     "get_indicator",

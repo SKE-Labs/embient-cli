@@ -17,8 +17,6 @@ from embient.config import settings
 if TYPE_CHECKING:
     from textual.app import ComposeResult
 
-    from embient.trading_config import TradingConfig
-
 logger = logging.getLogger(__name__)
 
 
@@ -123,7 +121,6 @@ class WelcomeBanner(Vertical):
         agent_info: dict[str, int] | None = None,
         cwd: str | None = None,
         user_email: str | None = None,
-        trading_config: TradingConfig | None = None,
         auth_token: str | None = None,
         **kwargs: Any,
     ) -> None:
@@ -132,7 +129,6 @@ class WelcomeBanner(Vertical):
         self._agent_info = agent_info or {}
         self._cwd = cwd or str(Path.cwd())
         self._user_email = user_email
-        self._trading_config = trading_config
         self._auth_token = auth_token
         self.border_title = f"Embient v{__version__}"
 
@@ -193,21 +189,8 @@ class WelcomeBanner(Vertical):
 
             # Right column
             with Vertical(classes="welcome-right"):
-                if self._trading_config is not None:
-                    yield Static("Trading Configuration", classes="welcome-section-title")
-
-                    symbol = self._trading_config.default_symbol or "[dim]not set[/dim]"
-                    config_lines = (
-                        f"  Symbol        {symbol}\n"
-                        f"  Exchange      {self._trading_config.default_exchange}\n"
-                        f"  Interval      {self._trading_config.default_interval}\n"
-                        f"  Position      {self._trading_config.default_position_size}%\n"
-                        f"  Max Leverage  {self._trading_config.max_leverage}x"
-                    )
-                    yield Static(config_lines, classes="welcome-config-table")
-
                 yield Static(
-                    "[bold]Tips[/bold]" if self._trading_config is None else "\n[bold]Tips[/bold]",
+                    "[bold]Tips[/bold]",
                     classes="welcome-tips-section",
                 )
                 yield Static(

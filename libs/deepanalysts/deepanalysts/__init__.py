@@ -38,7 +38,6 @@ from deepanalysts.middleware import (
     SummarizationMiddleware,
     ToolErrorHandlingMiddleware,
     TruncateArgsSettings,
-    build_session_context,
 )
 
 __all__ = [
@@ -58,6 +57,4 @@ __all__ = [
     # Constants
     "TASK_SYSTEM_PROMPT",
     "TASK_TOOL_DESCRIPTION",
-    # Utility functions
-    "build_session_context",
 ]

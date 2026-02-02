@@ -494,6 +494,8 @@ class BasementClient:
         exchange: str = "binance",
         interval: str = "4h",
         limit: int = 100,
+        from_ts: int | None = None,
+        to_ts: int | None = None,
     ) -> list[dict] | None:
         """Retrieve candlestick data for a symbol.
 
@@ -503,6 +505,8 @@ class BasementClient:
             exchange: Exchange name (default: binance)
             interval: Candle interval (e.g., 1m, 5m, 15m, 1h, 4h, 1d)
             limit: Number of candles to fetch
+            from_ts: Start of time range as Unix timestamp (inclusive)
+            to_ts: End of time range as Unix timestamp (inclusive)
 
         Returns:
             List of candle dictionaries with OHLCV data or None on failure
@@ -515,7 +519,13 @@ class BasementClient:
 
             # Build URL with path parameters
             url = f"{self.base_url}/api/v1/candles/{encoded_symbol}/{interval}"
-            params = {"limit": limit} if limit else {}
+            params: dict = {}
+            if limit:
+                params["limit"] = limit
+            if from_ts is not None:
+                params["from"] = from_ts
+            if to_ts is not None:
+                params["to"] = to_ts
 
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.get(

@@ -310,7 +310,11 @@ async def execute_task_textual(
     if image_tracker:
         image_tracker.clear()
 
-    stream_input: dict | Command = {"messages": [{"role": "user", "content": message_content}]}
+    # Build context message with current time for the agent
+    current_time = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+    context_message = {"role": "system", "content": f"Current time: {current_time}"}
+
+    stream_input: dict | Command = {"messages": [context_message, {"role": "user", "content": message_content}]}
 
     try:
         while True:
