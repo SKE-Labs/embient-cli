@@ -5,6 +5,7 @@ Provides the `task` tool for delegating work to specialized subagents.
 
 import logging
 from collections.abc import Awaitable, Callable, Sequence
+from datetime import UTC, datetime
 from typing import Any, NotRequired, TypedDict, cast
 
 from langchain.agents import create_agent
@@ -244,9 +245,8 @@ def _create_task_tool(
     ) -> tuple[Runnable, dict]:
         """Prepare state for invocation.
 
-        Injects session context (current datetime, symbol, exchange, interval)
-        from config.configurable into the task description so subagents have
-        the necessary context for time-sensitive operations.
+        Injects session context from config.configurable into the task
+        description so subagents have the necessary context.
         """
         subagent = subagent_graphs[subagent_type]
         # Create a new state dict to avoid mutating the original
@@ -254,7 +254,25 @@ def _create_task_tool(
             k: v for k, v in runtime.state.items() if k not in _EXCLUDED_STATE_KEYS
         }
 
-        subagent_state["messages"] = [HumanMessage(content=description)]
+        # Build session context from config
+        configurable = (runtime.config or {}).get("configurable", {})
+        symbol = configurable.get("symbol")
+        exchange = configurable.get("exchange")
+        interval = configurable.get("interval")
+        current_time = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+        context_parts = ["## Session Context"]
+        if symbol and exchange and interval:
+            context_parts.append(
+                f"User is currently viewing the **{symbol}** chart on the **{interval}** interval on **{exchange}**."
+            )
+            context_parts.append(f"All chart drawings and annotations must use the **{interval}** interval.")
+        context_parts.append(f"Current time is **{current_time}**.")
+
+        context_block = "\n".join(context_parts)
+        task_content = f"{context_block}\n\n## Task\n{description}"
+
+        subagent_state["messages"] = [HumanMessage(content=task_content)]
         return subagent, subagent_state
 
     def task(
