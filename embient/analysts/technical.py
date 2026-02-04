@@ -69,7 +69,13 @@ For speed:
 
 End with:
 - **Bias**: Bullish/Bearish/Neutral
-- **Key Levels**: Entry, SL, TP levels
+- **Key Levels**: Entry, SL, TP levels with exact prices
+- **Entry Setup**: Conditions that must be met before entering. Can be immediate or conditional:
+  - Immediate: "4H close above 75,200 with RSI above 50 and volume exceeding 20-period average"
+  - Conditional: "1. Descending wedge breaks above resistance at 76,500 (4H close above). 2. Price retests 76,500 as support with bullish 1H candle confirmation"
+- **Invalidation**: Structural break that kills the thesis — specify level, timeframe, and what structure it breaks:
+  - "Daily close below 71,800 demand zone, breaking the higher-low structure on 4H"
+  - For conditional setups: "Wedge breaks below support at 72,000 or price reaches apex without resolution"
 - **Confidence**: 0-100
 - **Timeframe Confluence**: High/Medium/Low
 
