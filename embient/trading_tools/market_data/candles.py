@@ -58,8 +58,7 @@ async def get_latest_candle(symbol: str, exchange: str = "binance") -> str:
 
         if not candle:
             raise ToolException(
-                f"No candle data found for {symbol} on {exchange}. "
-                f"The symbol may not exist or have no recent data."
+                f"No candle data found for {symbol} on {exchange}. The symbol may not exist or have no recent data."
             )
     except ToolException:
         raise
@@ -134,9 +133,31 @@ async def get_candles_around_date(
     except ValueError as e:
         raise ToolException(f"Invalid date format: {date}. Use YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS. Error: {e}") from e
 
-    # Get candles around the date (fetch more and filter)
+    # Compute interval in seconds and center around target date
+    INTERVAL_SECONDS = {
+        "1m": 60,
+        "5m": 300,
+        "15m": 900,
+        "30m": 1800,
+        "1h": 3600,
+        "4h": 14400,
+        "1d": 86400,
+    }
+    interval_secs = INTERVAL_SECONDS.get(interval, 3600)
+    target_ts = int(
+        dt.fromisoformat(normalized_date if "T" in normalized_date else f"{normalized_date}T00:00:00").timestamp()
+    )
+
     try:
-        candles = await basement_client.get_candles(token, symbol, exchange, interval, limit=50)
+        candles = await basement_client.get_candles(
+            token,
+            symbol,
+            exchange,
+            interval,
+            limit=21,
+            from_ts=target_ts - (interval_secs * 10),
+            to_ts=target_ts + (interval_secs * 10),
+        )
 
         if not candles:
             raise ToolException(f"No candle data found around {date} for {symbol} on {exchange}.")

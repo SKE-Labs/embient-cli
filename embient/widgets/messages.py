@@ -326,7 +326,9 @@ class ToolCallMessage(Vertical):
         yield self._header_widget
         # Show source agent for subagent tool calls
         if self._source_agent:
-            agent_display = self._source_agent.replace("_", " ").title()
+            # Strip unique ID suffix if present (e.g., "technical_analyst:abc12345" -> "technical_analyst")
+            base_name = self._source_agent.split(":")[0] if ":" in self._source_agent else self._source_agent
+            agent_display = base_name.replace("_", " ").title()
             yield Static(f"via {agent_display}", classes="tool-source")
         # Task tool: show first line of description as a clean summary
         if self._tool_name == "task" and "description" in self._args:
@@ -409,6 +411,20 @@ class ToolCallMessage(Vertical):
         """Mark the tool call as skipped (due to another rejection)."""
         self._status = "skipped"
         self._update_header("[dim]-[/dim]", "rejected")
+
+    def set_instance_id(self, instance_id: str, description: str) -> None:
+        """Store instance mapping for parallel subagent correlation.
+
+        This is used for task tools to map instance IDs to their descriptions
+        when multiple subagents of the same type run in parallel.
+
+        Args:
+            instance_id: The unique instance ID (first 8 chars of tool_call_id)
+            description: The task description for this instance
+        """
+        if not hasattr(self, "_instance_mappings"):
+            self._instance_mappings: dict[str, str] = {}
+        self._instance_mappings[instance_id] = description
 
     def toggle_output(self) -> None:
         """Toggle between preview and full output display."""

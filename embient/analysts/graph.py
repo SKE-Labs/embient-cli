@@ -17,63 +17,82 @@ from deepanalysts.middleware import (
     ToolErrorHandlingMiddleware,
 )
 from langchain.agents import create_agent
-from langchain.agents.middleware import TodoListMiddleware
+from langchain.agents.middleware import HumanInTheLoopMiddleware, TodoListMiddleware
 from langchain.agents.middleware.types import AgentMiddleware
 from langchain.tools import BaseTool
 from langchain_core.language_models import BaseChatModel
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Checkpointer
 
-SUPERVISOR_PROMPT = """# Embient AI Trading Analyst Supervisor
+from embient.trading_tools import (
+    calculate_position_size,
+    create_trading_signal,
+    get_active_trading_signals,
+    get_latest_candle,
+    update_trading_signal,
+)
 
-You are an orchestrator that delegates trading analysis to specialized analysts and synthesizes their outputs.
+SUPERVISOR_PROMPT = """# Embient AI Trading Analyst
 
-## Grounding Policy
+You orchestrate specialized analysts to answer trading questions. Handle quick queries directly and delegate deep analysis to experts.
 
-IMPORTANT: You must NEVER:
-- Invent price levels, stop losses, or take profits not derived from analysis
-- Create signals without technical_analyst providing analysis first
-- Guess position sizes — always use calculate_position_size via signal_manager
-- Provide trade recommendations without disclaimer
+NEVER:
+- Delegate signal creation, position sizing, or signal updates to analysts — handle these yourself
+- Invent price levels or position sizes — always get data from tools or analyst findings
 
-All outputs must be grounded in subagent analysis and tool results.
+## When to Act Directly vs Delegate
 
-## Professional Objectivity
+**Handle directly** (no delegation needed):
+- Quick price checks → `get_latest_candle`
+- Viewing signals → `get_active_trading_signals`
+- Updating signals → `update_trading_signal` (HITL approval)
+- Signal creation → `calculate_position_size` → `create_trading_signal` (HITL approval)
 
-Prioritize technical accuracy over validating user expectations:
-- Never confirm user's bias without chart evidence
-- Be direct about conflicting signals or low confidence
-- Disagree with user's thesis if analysis contradicts it
-- Objective guidance is more valuable than false agreement
-
-## Delegation
-
-Use the `task` tool to spawn specialized analysts:
-- **technical_analyst** — charts, indicators, patterns, S/R levels (always first for trading)
-- **signal_manager** — position sizing, signal creation (only after technical analysis)
-- **fundamental_analyst** — news, sentiment, market events
+**Delegate to specialists**:
+- **technical_analyst** — Multi-timeframe chart analysis (macro, swing, scalp). Analyzes 1d (macro), 1h (swing), and 15m (scalp) in a single comprehensive analysis.
+- **fundamental_analyst** — Deep research combining news, sentiment, and market events.
 
 ## Workflow Rules
 
-- **Analysis requests** → technical_analyst → respond
-- **Signal creation** → technical_analyst → signal_manager → respond
-- **Signal updates** → signal_manager → respond
-- **News queries** → fundamental_analyst → respond
-- **Full analysis** → technical + fundamental (PARALLEL) → respond
+- **Full analysis** → technical_analyst (all timeframes) → respond
+- **Signal creation** → technical_analyst → `get_latest_candle` → `calculate_position_size` → `create_trading_signal` → respond
+- **Signal update** → `update_trading_signal` directly
+- **News/fundamentals** → fundamental_analyst
 
-ALWAYS run technical analysis before signal creation. Parallelize independent analyses.
-NEVER call the same subagent twice for the same query. Trust subagent outputs.
+## Signal Creation
 
-## Response Format
+After analyst returns findings:
+1. `get_latest_candle` → suggestion_price
+2. `calculate_position_size` → quantity, leverage, capital_allocated
+3. `create_trading_signal` → uses analysis context (entry, SL, TP, rationale, invalid_condition, confidence)
+
+Use exact price levels from analyst findings. See `create_trading_signal` tool docs for field quality standards.
+
+**confidence_score** — Use the confidence score from the technical analyst based on timeframe confluence.
+
+## Professional Objectivity
+
+Prioritize accuracy over validating the user's expectations. If the chart contradicts their thesis, say so directly. If signals are mixed or confidence is low, be clear about it. Objective guidance is more valuable than false agreement.
+
+## Response Style
 
 Keep responses concise:
-- **Summary**: 1-2 sentences
-- **Key Findings**: 3-5 bullets
-- **Action**: If applicable
+- **Summary**: 1-2 sentences on what you found
+- **Key Findings**: 3-5 bullets with the most important insights
+- **Action**: Next steps if applicable
 
-Use markdown. End trading advice with:
-> **Disclaimer**: Educational only. Not financial advice. DYOR.
+Use markdown formatting. End trading recommendations with:
+> **Disclaimer**: Educational purposes only. Not financial advice. DYOR.
 """
+
+# Signal tools for orchestrator (handles signal management directly)
+_SIGNAL_TOOLS = [
+    get_latest_candle,
+    get_active_trading_signals,
+    calculate_position_size,
+    create_trading_signal,
+    update_trading_signal,
+]
 
 
 def create_deep_analysts(
@@ -90,7 +109,10 @@ def create_deep_analysts(
     """Create a trading analyst agent with comprehensive middleware stack.
 
     This agent uses the `task` tool to delegate work to specialized analysts
-    (technical_analyst, signal_manager, fundamental_analyst).
+    (technical_analyst, fundamental_analyst). The technical_analyst performs
+    comprehensive multi-timeframe analysis (macro, swing, scalp) in a single pass.
+
+    The orchestrator handles signal creation/updates directly (no signal_manager subagent).
 
     Middleware order (orchestrator):
     1. ToolErrorHandlingMiddleware - Graceful error handling
@@ -137,20 +159,18 @@ def create_deep_analysts(
                     "exchange": "binance",
                     "interval": "4h",
                 }
-            }
+            },
         )
         ```
     """
     # Get analyst subagent definitions
     # Import here to avoid circular import
     from embient.analysts.fundamental import get_fundamental_analyst
-    from embient.analysts.signal import get_signal_manager
     from embient.analysts.technical import get_technical_analyst
 
     subagents = [
         get_technical_analyst(model),
         get_fundamental_analyst(model),
-        get_signal_manager(model),
     ]
 
     # Use provided backend or default to local filesystem
@@ -171,10 +191,12 @@ def create_deep_analysts(
         if skills:
             subagent_middleware.append(SkillsMiddleware(sources=skills, backend=fs_backend))
 
-        subagent_middleware.extend([
-            FilesystemMiddleware(backend=fs_backend),
-            PatchToolCallsMiddleware(),  # Last: handle dangling tool calls
-        ])
+        subagent_middleware.extend(
+            [
+                FilesystemMiddleware(backend=fs_backend),
+                PatchToolCallsMiddleware(),  # Last: handle dangling tool calls
+            ]
+        )
         return subagent_middleware
 
     # Build orchestrator middleware stack
@@ -199,13 +221,27 @@ def create_deep_analysts(
                 subagents=subagents,
             ),
             PatchToolCallsMiddleware(),  # Handle dangling tool calls from interruptions
+            # HITL for signal creation/updates (orchestrator handles these directly)
+            HumanInTheLoopMiddleware(
+                interrupt_on={
+                    "create_trading_signal": {
+                        "allowed_decisions": ["approve", "reject"],
+                    },
+                    "update_trading_signal": {
+                        "allowed_decisions": ["approve", "reject"],
+                    },
+                }
+            ),
         ]
     )
+
+    # Combine signal tools with any additional tools passed in
+    all_tools = list(_SIGNAL_TOOLS) + list(tools or [])
 
     return create_agent(
         model,
         system_prompt=system_prompt or SUPERVISOR_PROMPT,
-        tools=list(tools or []),
+        tools=all_tools,
         middleware=middleware,
         checkpointer=checkpointer,
         debug=debug,

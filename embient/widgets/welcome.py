@@ -341,13 +341,23 @@ class WelcomeBanner(Vertical):
 
                 symbol = sig.get("symbol", "???")
                 position = sig.get("position", "BUY")
-                current = sig.get("current_price", 0)
-                suggestion = sig.get("suggestion_price", 0)
-                price = suggestion or current
-
+                entry = sig.get("entry_price")
                 arrow = "[green]\u25b2[/green]" if position == "BUY" else "[red]\u25bc[/red]"
-                price_str = f"[dim]@${price:,.2f}[/dim]" if price else ""
-                trades.append(f"  {arrow} {symbol:<14}active     {price_str}")
+
+                if entry:
+                    # Entered trade: show unrealized PnL like executed trades
+                    pnl = sig.get("current_unrealized_pnl", 0)
+                    pnl_sign = "+" if pnl >= 0 else ""
+                    pnl_color = "green" if pnl >= 0 else "red"
+                    pnl_str = f"[{pnl_color}]{pnl_sign}${pnl:,.2f}[/{pnl_color}]"
+                    trades.append(f"  {arrow} {symbol:<14}entered    {pnl_str}")
+                else:
+                    # Pending entry: show suggestion price
+                    suggestion = sig.get("suggestion_price", 0)
+                    current = sig.get("current_price", 0)
+                    price = suggestion or current
+                    price_str = f"[dim]@${price:,.2f}[/dim]" if price else ""
+                    trades.append(f"  {arrow} {symbol:<14}active     {price_str}")
 
         # Limit to 5 trades
         trades = trades[:5]

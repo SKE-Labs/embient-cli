@@ -34,18 +34,36 @@ if TYPE_CHECKING:
 _HITL_REQUEST_ADAPTER = TypeAdapter(HITLRequest)
 
 # Known subagent types for tagging tool invocations
-SUBAGENT_TYPES = frozenset({"technical_analyst", "fundamental_analyst", "signal_manager"})
+SUBAGENT_TYPES = frozenset({"technical_analyst", "fundamental_analyst"})
+
+
+def _extract_base_subagent_type(tag: str) -> str | None:
+    """Extract base subagent type from a tag that may include a unique ID.
+
+    Handles formats:
+    - 'technical_analyst' -> 'technical_analyst'
+    - 'technical_analyst:abc12345' -> 'technical_analyst'
+    """
+    if tag in SUBAGENT_TYPES:
+        return tag
+    # Check for prefixed match (e.g., "technical_analyst:abc12345")
+    if ":" in tag:
+        base_type = tag.split(":")[0]
+        if base_type in SUBAGENT_TYPES:
+            return base_type
+    return None
 
 
 def _extract_subagent_from_namespace(namespace: tuple) -> str | None:
-    """Extract subagent name from namespace tuple.
+    """Extract subagent identifier from namespace tuple.
 
     Checks multiple patterns since LangGraph namespace format varies:
-    - 'task:signal_manager:abc123' (explicit task prefix)
+    - 'task:technical_analyst:abc123' (explicit task prefix)
     - 'technical_analyst:abc123' (subagent name as node)
     - Any part containing a known subagent type name
 
-    Returns None for main agent (empty namespace).
+    Returns full identifier (e.g., 'technical_analyst:abc123') for parallel
+    instance identification, or None for main agent (empty namespace).
     """
     if not namespace:
         return None
@@ -56,11 +74,17 @@ def _extract_subagent_from_namespace(namespace: tuple) -> str | None:
         # Pattern 1: "task:subagent_name:uuid"
         if ns_part.startswith("task:"):
             parts = ns_part.split(":")
-            if len(parts) >= 2 and parts[1] in SUBAGENT_TYPES:
+            if len(parts) >= 3 and parts[1] in SUBAGENT_TYPES:
+                # Return full identifier for unique instance tracking
+                return f"{parts[1]}:{parts[2]}"
+            elif len(parts) >= 2 and parts[1] in SUBAGENT_TYPES:
                 return parts[1]
         # Pattern 2: namespace part contains a known subagent type
         for subagent_type in SUBAGENT_TYPES:
             if subagent_type in ns_part:
+                # If it contains unique ID suffix, return full identifier
+                if ns_part.startswith(subagent_type):
+                    return ns_part
                 return subagent_type
     return None
 
@@ -70,11 +94,15 @@ def _resolve_subagent_name(
     metadata: dict | None,
     cache: dict[tuple, str],
 ) -> str | None:
-    """Resolve subagent name using metadata tags, namespace, and cache.
+    """Resolve subagent identifier using metadata tags, namespace, and cache.
 
-    The SubAgentMiddleware sets ``tags=[subagent_type]`` in the config passed
-    to ``subagent.ainvoke()``.  These tags propagate through LangGraph's
+    The SubAgentMiddleware sets ``tags=[subagent_type:task_id]`` in the config
+    passed to ``subagent.ainvoke()``. These tags propagate through LangGraph's
     streaming metadata, so checking metadata is the most reliable strategy.
+
+    Tags may include unique task IDs for parallel instance identification:
+    - 'technical_analyst' (legacy format)
+    - 'technical_analyst:abc12345' (new format with unique ID)
 
     Args:
         ns_key: Namespace tuple (empty for main agent).
@@ -82,7 +110,8 @@ def _resolve_subagent_name(
         cache: Mutable namespace→subagent mapping for fast repeat lookups.
 
     Returns:
-        Subagent name string, or None for main agent / unknown namespace.
+        Full subagent identifier (e.g., 'technical_analyst:abc12345') for
+        unique instance tracking, or None for main agent / unknown namespace.
     """
     if not ns_key:
         return None
@@ -97,8 +126,16 @@ def _resolve_subagent_name(
         tags = metadata.get("tags") or []
         if isinstance(tags, list):
             for tag in tags:
-                if isinstance(tag, str) and tag in SUBAGENT_TYPES:
+                if not isinstance(tag, str):
+                    continue
+                # Check for exact match (legacy format)
+                if tag in SUBAGENT_TYPES:
                     cache[ns_key] = tag
+                    return tag
+                # Check for prefixed match with unique ID (new format)
+                base_type = _extract_base_subagent_type(tag)
+                if base_type:
+                    cache[ns_key] = tag  # Return full tag with unique ID
                     return tag
 
     # Strategy 2: namespace string patterns
@@ -295,8 +332,14 @@ async def execute_task_textual(
     file_op_tracker = FileOpTracker(assistant_id=assistant_id, backend=backend)
     displayed_tool_ids: set[str] = set()
     tool_call_buffers: dict[str | int, dict] = {}
-    # Track active task blocks by subagent type so subagent tool calls nest inside them
-    active_task_by_subagent: dict[str, ToolCallMessage] = {}
+    # Track active task blocks by tool_call_id so subagent tool calls nest inside them.
+    # When multiple parallel tasks of the same subagent_type are spawned, we need to
+    # route each subagent's tool calls to the correct parent task widget.
+    # Key: tool_call_id (unique per task), Value: ToolCallMessage widget
+    active_task_by_id: dict[str, ToolCallMessage] = {}
+    # Also track subagent_type -> list of tool_call_ids for each subagent type
+    # This allows us to find parent tasks when subagent events only have instance_id
+    task_ids_by_subagent: dict[str, list[str]] = {}
 
     # Track pending text and assistant messages PER NAMESPACE to avoid interleaving
     # when multiple subagents stream in parallel
@@ -325,7 +368,7 @@ async def execute_task_textual(
 
             async for chunk in agent.astream(
                 stream_input,
-                stream_mode=["messages", "updates"],
+                stream_mode=["messages", "updates", "custom"],
                 subgraphs=True,
                 config=config,
                 durability="exit",
@@ -365,6 +408,33 @@ async def execute_task_textual(
                         if adapter._update_todos:
                             adapter._update_todos(chunk_data["todos"])
 
+                # Handle CUSTOM stream - for task_spawned events
+                elif current_stream_mode == "custom":
+                    # Custom events can be a list or a single dict
+                    events = data if isinstance(data, list) else [data] if isinstance(data, dict) else []
+                    for event in events:
+                        if not isinstance(event, dict):
+                            continue
+                        event_name = event.get("type") or event.get("name")
+                        event_data = event.get("data", {})
+                        if event_name == "task_spawned":
+                            # Map instance_id to the task description for parent task tracking
+                            subagent_type = event_data.get("subagent_type")
+                            instance_id = event_data.get("instance_id")
+                            if subagent_type and instance_id:
+                                # Find the correct parent task by matching instance_id
+                                # instance_id is the first 8 chars of tool_call_id
+                                parent = None
+                                task_ids = task_ids_by_subagent.get(subagent_type, [])
+                                for task_id in task_ids:
+                                    if task_id.startswith(instance_id):
+                                        parent = active_task_by_id.get(task_id)
+                                        break
+                                if parent:
+                                    desc = event_data.get("description", "")
+                                    # Store instance mapping for later correlation
+                                    parent.set_instance_id(instance_id, desc)
+
                 # Handle MESSAGES stream - for content and tool calls
                 elif current_stream_mode == "messages":
                     if not isinstance(data, tuple) or len(data) != 2:
@@ -399,7 +469,21 @@ async def execute_task_textual(
                             tool_id = getattr(message, "tool_call_id", None)
                             tool_status = getattr(message, "status", "success")
                             if subagent_name and tool_id:
-                                parent = active_task_by_subagent.get(subagent_name)
+                                # Find correct parent task by matching instance_id from subagent_name
+                                parent = None
+                                if ":" in subagent_name:
+                                    base_type, instance_id = subagent_name.split(":", 1)
+                                    task_ids = task_ids_by_subagent.get(base_type, [])
+                                    for task_tid in task_ids:
+                                        if task_tid.startswith(instance_id):
+                                            parent = active_task_by_id.get(task_tid)
+                                            break
+                                else:
+                                    # Legacy format - fallback to first task of type
+                                    base_type = _extract_base_subagent_type(subagent_name)
+                                    task_ids = task_ids_by_subagent.get(base_type, []) if base_type else []
+                                    if task_ids:
+                                        parent = active_task_by_id.get(task_ids[0])
                                 if parent:
                                     parent.complete_sub_tool(tool_id, success=(tool_status == "success"))
                             continue
@@ -558,7 +642,22 @@ async def execute_task_textual(
 
                                 # Subagent tool calls: nest inside parent task block
                                 if not is_main_agent and subagent_name:
-                                    parent = active_task_by_subagent.get(subagent_name)
+                                    # Find correct parent task by matching instance_id from subagent_name
+                                    # subagent_name format: "technical_analyst:abc12345"
+                                    parent = None
+                                    if ":" in subagent_name:
+                                        base_type, instance_id = subagent_name.split(":", 1)
+                                        task_ids = task_ids_by_subagent.get(base_type, [])
+                                        for task_id in task_ids:
+                                            if task_id.startswith(instance_id):
+                                                parent = active_task_by_id.get(task_id)
+                                                break
+                                    else:
+                                        # Legacy format without instance_id - fallback to first task of type
+                                        base_type = subagent_name
+                                        task_ids = task_ids_by_subagent.get(base_type, [])
+                                        if task_ids:
+                                            parent = active_task_by_id.get(task_ids[0])
                                     if parent:
                                         await parent.add_sub_tool(buffer_id, buffer_name, parsed_args)
                                         tool_call_buffers.pop(buffer_key, None)
@@ -581,8 +680,12 @@ async def execute_task_textual(
                                     # Register task tools for subagent nesting
                                     if buffer_name == "task":
                                         subagent_type = parsed_args.get("subagent_type")
-                                        if subagent_type:
-                                            active_task_by_subagent[subagent_type] = tool_msg
+                                        if subagent_type and buffer_id:
+                                            active_task_by_id[buffer_id] = tool_msg
+                                            # Track which task IDs belong to each subagent type
+                                            if subagent_type not in task_ids_by_subagent:
+                                                task_ids_by_subagent[subagent_type] = []
+                                            task_ids_by_subagent[subagent_type].append(buffer_id)
 
                             tool_call_buffers.pop(buffer_key, None)
 
