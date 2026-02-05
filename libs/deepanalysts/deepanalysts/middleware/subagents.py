@@ -20,6 +20,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, ToolMessage
 from langchain_core.runnables import Runnable
 from langchain_core.tools import StructuredTool
+from langgraph.config import get_stream_writer
 from langgraph.types import Command
 
 from deepanalysts.middleware._utils import append_to_system_message
@@ -153,9 +154,7 @@ def _create_subagents(
     subagent_descriptions = []
 
     for agent_spec in subagents:
-        subagent_descriptions.append(
-            f"- {agent_spec['name']}: {agent_spec['description']}"
-        )
+        subagent_descriptions.append(f"- {agent_spec['name']}: {agent_spec['description']}")
 
         if "runnable" in agent_spec:
             # Pre-compiled agent
@@ -217,22 +216,14 @@ def _create_task_tool(
     subagent_description_str = "\n".join(subagent_descriptions)
 
     if task_description is None:
-        task_description = TASK_TOOL_DESCRIPTION.format(
-            available_agents=subagent_description_str
-        )
+        task_description = TASK_TOOL_DESCRIPTION.format(available_agents=subagent_description_str)
     elif "{available_agents}" in task_description:
-        task_description = task_description.format(
-            available_agents=subagent_description_str
-        )
+        task_description = task_description.format(available_agents=subagent_description_str)
 
     def _return_command_with_state_update(result: dict, tool_call_id: str) -> Command:
-        state_update = {
-            k: v for k, v in result.items() if k not in _EXCLUDED_STATE_KEYS
-        }
+        state_update = {k: v for k, v in result.items() if k not in _EXCLUDED_STATE_KEYS}
         # Strip trailing whitespace to prevent API errors with Anthropic
-        message_text = (
-            result["messages"][-1].text.rstrip() if result["messages"][-1].text else ""
-        )
+        message_text = result["messages"][-1].text.rstrip() if result["messages"][-1].text else ""
         return Command(
             update={
                 **state_update,
@@ -250,9 +241,7 @@ def _create_task_tool(
         """
         subagent = subagent_graphs[subagent_type]
         # Create a new state dict to avoid mutating the original
-        subagent_state = {
-            k: v for k, v in runtime.state.items() if k not in _EXCLUDED_STATE_KEYS
-        }
+        subagent_state = {k: v for k, v in runtime.state.items() if k not in _EXCLUDED_STATE_KEYS}
 
         # Build session context from config
         configurable = (runtime.config or {}).get("configurable", {})
@@ -285,9 +274,7 @@ def _create_task_tool(
             allowed = ", ".join([f"`{k}`" for k in subagent_graphs])
             return f"Unknown subagent '{subagent_type}'. Available: {allowed}"
 
-        subagent, subagent_state = _validate_and_prepare_state(
-            subagent_type, description, runtime
-        )
+        subagent, subagent_state = _validate_and_prepare_state(subagent_type, description, runtime)
         result = subagent.invoke(subagent_state, runtime.config)
 
         if not runtime.tool_call_id:
@@ -309,20 +296,31 @@ def _create_task_tool(
             allowed = ", ".join([f"`{k}`" for k in subagent_graphs])
             return f"Unknown subagent '{subagent_type}'. Available: {allowed}"
 
-        subagent, subagent_state = _validate_and_prepare_state(
-            subagent_type, description, runtime
-        )
+        subagent, subagent_state = _validate_and_prepare_state(subagent_type, description, runtime)
+        # Create unique tag using tool_call_id to distinguish parallel instances.
+        # Format: "technical_analyst:abc12345" allows streaming to identify which
+        # parallel subagent is emitting events.
+        instance_id = runtime.tool_call_id[:8] if runtime.tool_call_id else ""
+        task_tag = f"{subagent_type}:{instance_id}" if instance_id else subagent_type
+
         # Merge runtime config with tags for subagent identification in streams
-        config = (
-            {**runtime.config, "tags": [subagent_type]}
-            if runtime.config
-            else {"tags": [subagent_type]}
-        )
+        config = {**runtime.config, "tags": [task_tag]} if runtime.config else {"tags": [task_tag]}
+
+        writer = get_stream_writer()
+        if writer:
+            writer(
+                {
+                    "type": "task_spawned",
+                    "data": {
+                        "subagent_type": subagent_type,
+                        "instance_id": instance_id,
+                        "description": description,
+                    },
+                }
+            )
 
         # Retry logic for transient API errors (5 attempts, exponential backoff 2s-16s)
-        async for attempt in create_async_retry(
-            max_attempts=5, min_wait=2.0, max_wait=16.0
-        ):
+        async for attempt in create_async_retry(max_attempts=5, min_wait=2.0, max_wait=16.0):
             with attempt:
                 result = await subagent.ainvoke(subagent_state, config)
 
@@ -361,8 +359,7 @@ class SubAgentMiddleware(AgentMiddleware):
         default_model: str | BaseChatModel,
         default_tools: Sequence[BaseTool | Callable | dict[str, Any]] | None = None,
         default_middleware: list[AgentMiddleware] | None = None,
-        default_middleware_factory: Callable[[str], list[AgentMiddleware]]
-        | None = None,
+        default_middleware_factory: Callable[[str], list[AgentMiddleware]] | None = None,
         default_interrupt_on: dict[str, bool | InterruptOnConfig] | None = None,
         subagents: list[SubAgent | CompiledSubAgent] | None = None,
         system_prompt: str | None = TASK_SYSTEM_PROMPT,
@@ -389,9 +386,7 @@ class SubAgentMiddleware(AgentMiddleware):
     ) -> ModelResponse:
         """Add analyst task instructions to system prompt."""
         if self.system_prompt is not None:
-            system_message = append_to_system_message(
-                request.system_message, self.system_prompt
-            )
+            system_message = append_to_system_message(request.system_message, self.system_prompt)
             return handler(request.override(system_message=system_message))
         return handler(request)
 
@@ -402,12 +397,9 @@ class SubAgentMiddleware(AgentMiddleware):
     ) -> ModelResponse:
         """Async: Add analyst task instructions to system prompt."""
         if self.system_prompt is not None:
-            system_message = append_to_system_message(
-                request.system_message, self.system_prompt
-            )
+            system_message = append_to_system_message(request.system_message, self.system_prompt)
             return await handler(request.override(system_message=system_message))
         return await handler(request)
-
 
 
 __all__ = [
