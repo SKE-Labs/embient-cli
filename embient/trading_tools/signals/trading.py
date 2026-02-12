@@ -4,6 +4,7 @@ from langchain_core.tools import ToolException, tool
 from pydantic import BaseModel, Field
 
 from embient.clients import basement_client
+from embient.clients.basement import MonitoringQuotaError
 from embient.context import get_jwt_token, get_thread_id
 
 
@@ -12,7 +13,7 @@ class GetSignalsSchema(BaseModel):
 
     status: str | None = Field(
         default=None,
-        description="Filter by status: active, expired, executed, cancelled",
+        description="Filter by status: active, expired, executed, cancelled, closed",
     )
     ticker: str | None = Field(
         default=None,
@@ -33,7 +34,7 @@ async def get_active_trading_signals(
     - Find signals to update or close
 
     Parameters:
-    - status: Filter by status (active, expired, executed, cancelled)
+    - status: Filter by status (active, expired, executed, cancelled, closed)
     - ticker: Filter by specific trading pair
 
     IMPORTANT: Requires authentication. Run 'embient login' first.
@@ -154,22 +155,28 @@ async def create_trading_signal(
     # Get thread_id from context if available
     thread_id = get_thread_id()
 
-    result = await basement_client.create_trading_signal(
-        token=token,
-        symbol=symbol,
-        position=position,
-        entry_conditions=entry_conditions,
-        suggestion_price=suggestion_price,
-        stop_loss=stop_loss,
-        confidence_score=confidence_score,
-        rationale=rationale,
-        invalid_condition=invalid_condition,
-        take_profit_levels=take_profit_levels,
-        quantity=quantity,
-        leverage=leverage,
-        capital_allocated=capital_allocated,
-        thread_id=thread_id,
-    )
+    try:
+        result = await basement_client.create_trading_signal(
+            token=token,
+            symbol=symbol,
+            position=position,
+            entry_conditions=entry_conditions,
+            suggestion_price=suggestion_price,
+            stop_loss=stop_loss,
+            confidence_score=confidence_score,
+            rationale=rationale,
+            invalid_condition=invalid_condition,
+            take_profit_levels=take_profit_levels,
+            quantity=quantity,
+            leverage=leverage,
+            capital_allocated=capital_allocated,
+            thread_id=thread_id,
+        )
+    except MonitoringQuotaError as e:
+        raise ToolException(
+            f"Monitoring quota exceeded: {e}. "
+            "Consider upgrading your subscription plan or disabling monitoring on an existing signal."
+        ) from None
 
     if not result:
         raise ToolException("Failed to create trading signal. Check API connection and parameters.")
@@ -196,7 +203,7 @@ class UpdateSignalSchema(BaseModel):
     signal_id: int = Field(description="The trading signal ID to update")
     status: str | None = Field(
         default=None,
-        description="New status: active, expired, executed, cancelled",
+        description="New status: active, expired, executed, cancelled, closed",
     )
     entry_price: float | None = Field(default=None, description="Actual entry price")
     exit_price: float | None = Field(default=None, description="Actual exit price")
@@ -218,15 +225,16 @@ async def update_trading_signal(
     """Updates an existing trading signal.
 
     Usage:
-    - Update signal when it's executed (set entry_price, status='executed')
-    - Close a signal (set exit_price, calculate profit_loss)
+    - Update signal when trade is entered (set entry_price, status='executed')
+    - Close a position (set exit_price, status='closed')
     - Adjust stop loss or take profit levels
     - Add reflection notes after trade closes
 
     Status values:
-    - active: Signal is live and being monitored
-    - executed: Trade has been entered
-    - cancelled: Signal invalidated before entry
+    - active: Signal is live, waiting for entry
+    - executed: Trade entered, position is OPEN
+    - closed: Position exited, P&L realized
+    - cancelled: Signal invalidated
     - expired: Signal expired without execution
 
     NEVER:
@@ -246,7 +254,7 @@ async def update_trading_signal(
     # Validate status if provided
     if status:
         status = status.lower()
-        valid_statuses = ["active", "expired", "executed", "cancelled"]
+        valid_statuses = ["active", "expired", "executed", "cancelled", "closed"]
         if status not in valid_statuses:
             raise ToolException(f"Invalid status: {status}. Must be one of: {', '.join(valid_statuses)}")
 

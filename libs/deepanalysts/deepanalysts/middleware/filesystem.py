@@ -1,8 +1,10 @@
 """Middleware for providing filesystem tools to an agent."""
 
+import base64
 import os
 import re
 from collections.abc import Awaitable, Callable, Sequence
+from pathlib import Path
 from typing import Annotated, Literal, NotRequired
 
 from langchain.agents.middleware.types import (
@@ -14,6 +16,7 @@ from langchain.agents.middleware.types import (
 from langchain.tools import ToolRuntime
 from langchain.tools.tool_node import ToolCallRequest
 from langchain_core.messages import ToolMessage
+from langchain_core.messages.content import create_image_block
 from langchain_core.tools import BaseTool, StructuredTool
 from langgraph.types import Command
 from typing_extensions import TypedDict
@@ -41,6 +44,14 @@ EMPTY_CONTENT_WARNING = "System reminder: File exists but has empty contents"
 LINE_NUMBER_WIDTH = 6
 DEFAULT_READ_OFFSET = 0
 DEFAULT_READ_LIMIT = 500
+IMAGE_EXTENSIONS = frozenset({".png", ".jpg", ".jpeg", ".gif", ".webp"})
+IMAGE_MEDIA_TYPES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+}
 
 # Approximate number of characters per token for truncation calculations.
 # Using 4 chars per token as a conservative approximation (actual ratio varies by content)
@@ -376,10 +387,27 @@ class FilesystemMiddleware(AgentMiddleware):
             runtime: ToolRuntime[None, FilesystemState],
             offset: Annotated[int, "Line number to start reading from (0-indexed)."] = DEFAULT_READ_OFFSET,
             limit: Annotated[int, "Maximum number of lines to read."] = DEFAULT_READ_LIMIT,
-        ) -> str:
+        ) -> str | ToolMessage:
             """Synchronous wrapper for read_file tool."""
             resolved_backend = _get_backend(backend, runtime)
             validated_path = _validate_path(file_path)
+
+            # Handle image files natively
+            ext = Path(validated_path).suffix.lower()
+            if ext in IMAGE_EXTENSIONS:
+                responses = resolved_backend.download_files([validated_path])
+                if responses and responses[0].content is not None:
+                    media_type = IMAGE_MEDIA_TYPES.get(ext, "image/png")
+                    image_b64 = base64.standard_b64encode(responses[0].content).decode("utf-8")
+                    return ToolMessage(
+                        content_blocks=[create_image_block(base64=image_b64, mime_type=media_type)],
+                        name="read_file",
+                        tool_call_id=runtime.tool_call_id,
+                    )
+                if responses and responses[0].error:
+                    return f"Error reading image: {responses[0].error}"
+                return "Error reading image: unknown error"
+
             result = resolved_backend.read(validated_path, offset=offset, limit=limit)
 
             lines = result.splitlines(keepends=True)
@@ -401,10 +429,27 @@ class FilesystemMiddleware(AgentMiddleware):
             runtime: ToolRuntime[None, FilesystemState],
             offset: Annotated[int, "Line number to start reading from (0-indexed)."] = DEFAULT_READ_OFFSET,
             limit: Annotated[int, "Maximum number of lines to read."] = DEFAULT_READ_LIMIT,
-        ) -> str:
+        ) -> str | ToolMessage:
             """Asynchronous wrapper for read_file tool."""
             resolved_backend = _get_backend(backend, runtime)
             validated_path = _validate_path(file_path)
+
+            # Handle image files natively
+            ext = Path(validated_path).suffix.lower()
+            if ext in IMAGE_EXTENSIONS:
+                responses = await resolved_backend.adownload_files([validated_path])
+                if responses and responses[0].content is not None:
+                    media_type = IMAGE_MEDIA_TYPES.get(ext, "image/png")
+                    image_b64 = base64.standard_b64encode(responses[0].content).decode("utf-8")
+                    return ToolMessage(
+                        content_blocks=[create_image_block(base64=image_b64, mime_type=media_type)],
+                        name="read_file",
+                        tool_call_id=runtime.tool_call_id,
+                    )
+                if responses and responses[0].error:
+                    return f"Error reading image: {responses[0].error}"
+                return "Error reading image: unknown error"
+
             result = await resolved_backend.aread(validated_path, offset=offset, limit=limit)
 
             lines = result.splitlines(keepends=True)

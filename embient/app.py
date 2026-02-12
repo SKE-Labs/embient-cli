@@ -605,7 +605,7 @@ class EmbientApp(App):
             self.exit()
         elif cmd == "/help":
             await self._mount_message(UserMessage(command))
-            await self._mount_message(SystemMessage("Commands: /quit, /clear, /remember, /tokens, /threads, /help"))
+            await self._mount_message(SystemMessage("Commands: /quit, /clear, /remember, /tokens, /threads, /model, /help"))
 
         elif cmd == "/version":
             await self._mount_message(UserMessage(command))
@@ -628,10 +628,51 @@ class EmbientApp(App):
                 await self._mount_message(SystemMessage(f"Started new session: {new_thread_id}"))
         elif cmd == "/threads":
             await self._mount_message(UserMessage(command))
-            if self._session_state:
-                await self._mount_message(SystemMessage(f"Current session: {self._session_state.thread_id}"))
-            else:
-                await self._mount_message(SystemMessage("No active session"))
+            current_thread = self._session_state.thread_id if self._session_state else None
+
+            from embient.widgets.thread_selector import ThreadSelectorScreen
+
+            def on_thread_selected(thread_id: str | None) -> None:
+                if thread_id and self._session_state and thread_id != current_thread:
+                    self._session_state.thread_id = thread_id
+                    self.run_worker(self._switch_thread(thread_id))
+                elif thread_id == current_thread:
+                    self.call_after_refresh(
+                        lambda: self.run_worker(
+                            self._mount_message(SystemMessage(f"Already on thread {thread_id}"))
+                        )
+                    )
+
+            self.push_screen(
+                ThreadSelectorScreen(current_thread=current_thread),
+                callback=on_thread_selected,
+            )
+        elif cmd == "/model":
+            await self._mount_message(UserMessage(command))
+
+            from embient.config import settings
+            from embient.widgets.model_selector import ModelSelectorScreen
+
+            def on_model_selected(result: tuple[str, str] | None) -> None:
+                if result is None:
+                    return
+                model_spec, provider = result
+                # model_spec is "provider:model" — extract just the model name
+                if ":" in model_spec:
+                    _, model_name = model_spec.split(":", 1)
+                else:
+                    model_name = model_spec
+
+                # Recreate agent with new model
+                self.run_worker(self._switch_model(model_name))
+
+            self.push_screen(
+                ModelSelectorScreen(
+                    current_model=settings.model_name,
+                    current_provider=settings.model_provider,
+                ),
+                callback=on_model_selected,
+            )
         elif cmd == "/tokens":
             await self._mount_message(UserMessage(command))
             if self._token_tracker and self._token_tracker.current_context > 0:
@@ -847,6 +888,64 @@ class EmbientApp(App):
             except Exception:
                 pass
             self._todo_widget = None
+
+    async def _switch_thread(self, thread_id: str) -> None:
+        """Switch to a different thread, clearing UI and loading its history."""
+        await self._clear_messages()
+        if self._token_tracker:
+            self._token_tracker.reset()
+        self._update_status("")
+
+        # Update internal thread tracking
+        self._lc_thread_id = thread_id
+
+        await self._mount_message(SystemMessage(f"Switched to thread: {thread_id}"))
+        await self._load_thread_history()
+
+    async def _switch_model(self, model_name: str) -> None:
+        """Switch to a different LLM model, recreating the agent."""
+        from embient.agent import create_cli_agent
+        from embient.config import create_model, settings
+        from embient.sessions import generate_thread_id
+
+        try:
+            model = create_model(model_name)
+        except SystemExit:
+            await self._mount_message(ErrorMessage(f"Failed to switch to model: {model_name}"))
+            return
+
+        # Clear conversation and start new thread
+        await self._clear_messages()
+        if self._token_tracker:
+            self._token_tracker.reset()
+        self._update_status("")
+
+        new_thread_id = generate_thread_id()
+        if self._session_state:
+            self._session_state.thread_id = new_thread_id
+        self._lc_thread_id = new_thread_id
+
+        # Recreate agent with new model
+        try:
+            from embient.tools import fetch_url, http_request
+            from embient.trading_tools.research import web_search as park_web_search
+
+            tools = [http_request, fetch_url, park_web_search]
+            agent, backend = create_cli_agent(
+                model=model,
+                assistant_id=self._assistant_id,
+                tools=tools,
+                auto_approve=self._session_state.auto_approve if self._session_state else False,
+                checkpointer=self._agent.checkpointer if self._agent else None,
+            )
+            self._agent = agent
+            self._backend = backend
+            provider = settings.model_provider or "unknown"
+            await self._mount_message(
+                SystemMessage(f"Switched to {provider}:{model_name} (thread: {new_thread_id})")
+            )
+        except Exception as e:
+            await self._mount_message(ErrorMessage(f"Failed to recreate agent: {e}"))
 
     def action_quit_or_interrupt(self) -> None:
         """Handle Ctrl+C - interrupt agent, reject approval, or quit on double press.

@@ -162,6 +162,18 @@ def parse_args() -> argparse.Namespace:
         help="Auto-approve tool usage without prompting (disables human-in-the-loop)",
     )
     parser.add_argument(
+        "-p",
+        "--pipe",
+        action="store_true",
+        help="Non-interactive pipe mode: run task, stream output to stdout, and exit",
+    )
+    parser.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="Quiet mode (use with -p): only agent response text on stdout, status on stderr",
+    )
+    parser.add_argument(
         "--sandbox",
         choices=["none", "modal", "daytona", "runloop"],
         default="none",
@@ -362,6 +374,29 @@ def cli_main() -> None:
             # Generate new thread ID if not resuming
             if thread_id is None:
                 thread_id = generate_thread_id()
+
+            # Non-interactive pipe mode
+            pipe_mode = getattr(args, "pipe", False) or (
+                not sys.stdin.isatty() and args.initial_prompt
+            )
+
+            if pipe_mode:
+                if not args.initial_prompt:
+                    console.print("[red]Error: -p/--pipe requires -m/--message[/red]")
+                    sys.exit(1)
+
+                from embient.non_interactive import run_non_interactive
+
+                exit_code = asyncio.run(
+                    run_non_interactive(
+                        message=args.initial_prompt,
+                        assistant_id=args.agent,
+                        model_name=getattr(args, "model", None),
+                        quiet=getattr(args, "quiet", False),
+                        auto_approve=True,
+                    )
+                )
+                sys.exit(exit_code)
 
             # Run Textual CLI
             asyncio.run(

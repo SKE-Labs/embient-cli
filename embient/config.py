@@ -53,7 +53,9 @@ EMBIENT_ASCII = f"""
 COMMANDS = {
     "clear": "Clear screen and reset conversation",
     "help": "Show help information",
+    "model": "Switch LLM model",
     "remember": "Review conversation and update memory/skills",
+    "threads": "Browse and switch threads",
     "tokens": "Show token usage for current session",
     "quit": "Exit the CLI",
     "exit": "Exit the CLI",

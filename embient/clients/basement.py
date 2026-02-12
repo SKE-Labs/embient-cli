@@ -31,6 +31,12 @@ class AuthenticationError(Exception):
     pass
 
 
+class MonitoringQuotaError(Exception):
+    """Raised when monitoring quota is exceeded for the user's subscription tier."""
+
+    pass
+
+
 BASEMENT_API_URL = os.environ.get("BASEMENT_API", "https://basement.embient.ai")
 
 
@@ -209,15 +215,22 @@ class BasementClient:
                     data = response.json()
                     logger.info(f"Created trading signal for {symbol}")
                     return data.get("response")
-                if response.status_code in (401, 403):
-                    raise AuthenticationError("Session expired or invalid. Run 'embient login' to re-authenticate.")
+                if response.status_code == 401:
+                    raise AuthenticationError(
+                        "Session expired or invalid. Run 'embient login' to re-authenticate."
+                    )
+                if response.status_code == 403:
+                    # 403 may be a monitoring quota error, not an auth error
+                    data = response.json()
+                    msg = data.get("message", "Forbidden")
+                    raise MonitoringQuotaError(msg)
                 logger.error(f"Failed to create signal: {response.status_code} - {response.text}")
                 return None
 
         except httpx.TimeoutException:
             logger.error("Timeout while creating trading signal")
             return None
-        except AuthenticationError:
+        except (AuthenticationError, MonitoringQuotaError):
             raise
         except Exception as e:
             logger.error(f"Error creating trading signal: {e}")
@@ -775,6 +788,95 @@ class BasementClient:
         except Exception as e:
             logger.error(f"Error fetching skills: {e}")
             return []
+
+
+    # =========================================================================
+    # Subscription / Monitoring Quota
+    # =========================================================================
+
+    async def check_monitoring_quota(self, token: str) -> dict | None:
+        """Check if the user can enable monitoring on more signals.
+
+        Args:
+            token: JWT authentication token
+
+        Returns:
+            Dict with allowed, current, limit fields, or None on failure
+        """
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v1/subscription/monitoring-quota",
+                    headers=self._headers(token),
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get("response", {})
+                if response.status_code in (401, 403):
+                    raise AuthenticationError(
+                        "Session expired or invalid. Run 'embient login' to re-authenticate."
+                    )
+                logger.error(
+                    f"Failed to check monitoring quota: {response.status_code} - {response.text}"
+                )
+                return None
+
+        except httpx.TimeoutException:
+            logger.error("Timeout while checking monitoring quota")
+            return None
+        except AuthenticationError:
+            raise
+        except Exception as e:
+            logger.error(f"Error checking monitoring quota: {e}")
+            return None
+
+    async def validate_monitoring_interval(
+        self, token: str, interval_minutes: int
+    ) -> dict | None:
+        """Validate a monitoring interval against the user's subscription tier.
+
+        Args:
+            token: JWT authentication token
+            interval_minutes: Proposed monitoring interval in minutes
+
+        Returns:
+            Dict with valid, min, max fields, or None on failure
+        """
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v1/subscription/limits",
+                    headers=self._headers(token),
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    limits = data.get("response", {})
+                    min_interval = limits.get("min_monitoring_interval_minutes", 30)
+                    max_interval = limits.get("max_monitoring_interval_minutes", 60)
+                    return {
+                        "valid": min_interval <= interval_minutes <= max_interval,
+                        "min": min_interval,
+                        "max": max_interval,
+                    }
+                if response.status_code in (401, 403):
+                    raise AuthenticationError(
+                        "Session expired or invalid. Run 'embient login' to re-authenticate."
+                    )
+                logger.error(
+                    f"Failed to validate monitoring interval: {response.status_code} - {response.text}"
+                )
+                return None
+
+        except httpx.TimeoutException:
+            logger.error("Timeout while validating monitoring interval")
+            return None
+        except AuthenticationError:
+            raise
+        except Exception as e:
+            logger.error(f"Error validating monitoring interval: {e}")
+            return None
 
 
 # Singleton instance

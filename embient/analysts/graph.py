@@ -14,6 +14,7 @@ from deepanalysts.middleware import (
     PatchToolCallsMiddleware,
     SkillsMiddleware,
     SubAgentMiddleware,
+    SummarizationMiddleware,
     ToolErrorHandlingMiddleware,
 )
 from langchain.agents import create_agent
@@ -117,11 +118,12 @@ def create_deep_analysts(
     Middleware order (orchestrator):
     1. ToolErrorHandlingMiddleware - Graceful error handling
     2. TodoListMiddleware - Planning & task tracking
-    3. MemoryMiddleware - User preferences (if configured)
-    4. SkillsMiddleware - Trading workflows (if configured)
-    5. FilesystemMiddleware - Context management
-    6. SubAgentMiddleware - Analyst delegation
-    7. PatchToolCallsMiddleware - Handle dangling tool calls
+    3. SummarizationMiddleware - Context window management
+    4. MemoryMiddleware - User preferences (if configured)
+    5. SkillsMiddleware - Trading workflows (if configured)
+    6. FilesystemMiddleware - Context management
+    7. SubAgentMiddleware - Analyst delegation
+    8. PatchToolCallsMiddleware - Handle dangling tool calls
 
     Subagents receive: ToolErrorHandlingMiddleware, SkillsMiddleware*, FilesystemMiddleware, PatchToolCallsMiddleware
 
@@ -203,6 +205,17 @@ def create_deep_analysts(
     middleware: list[AgentMiddleware] = [
         ToolErrorHandlingMiddleware(),
         TodoListMiddleware(),
+        SummarizationMiddleware(
+            model=model,
+            backend=fs_backend,
+            trigger=("tokens", 100000),
+            keep=("messages", 20),
+            truncate_args_settings={
+                "trigger": ("messages", 20),
+                "keep": ("messages", 20),
+                "max_length": 2000,
+            },
+        ),
     ]
 
     if memory:

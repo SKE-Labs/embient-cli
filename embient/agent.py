@@ -361,11 +361,17 @@ def create_cli_agent(
             memory_sources.append(str(project_agent_md))
 
     if enable_skills:
+        # Built-in skills (lowest priority)
+        from embient.skills.load import BUILT_IN_SKILLS_DIR
+
+        if BUILT_IN_SKILLS_DIR.exists():
+            skills_sources.append(str(BUILT_IN_SKILLS_DIR))
+
         # User's skills directory (ensure it exists)
         user_skills_dir = settings.ensure_user_skills_dir(assistant_id)
         skills_sources.append(str(user_skills_dir))
 
-        # Project-level skills (only if directory exists)
+        # Project-level skills (only if directory exists, highest priority)
         project_skills_dir = settings.get_project_skills_dir()
         if project_skills_dir and project_skills_dir.exists():
             skills_sources.append(str(project_skills_dir))

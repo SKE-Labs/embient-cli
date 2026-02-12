@@ -98,19 +98,11 @@ class MemoryStateUpdate(TypedDict):
 
 # Default system prompt template for memory
 MEMORY_SYSTEM_PROMPT = """
-## Agent Memory
+# User Preferences & Instructions
 
-You have access to persistent memory that provides context and instructions.
-
-{memory_locations}
+The following are the user's personal preferences and instructions. They reflect the user's trading style, risk management approach, research methodology, and other guidelines that should inform your analysis and recommendations. Adhere to them closely — these instructions override default behavior.
 
 {memory_contents}
-
-**Memory Guidelines:**
-- Memory content above provides project-specific context and instructions
-- Follow any guidelines, conventions, or patterns described in memory
-- Memory is read-only during this session (loaded at startup)
-- If you need to update memory, use the appropriate file editing tools
 """
 
 
@@ -208,14 +200,17 @@ class MemoryMiddleware(AgentMiddleware):
     def _format_memory_contents(self, contents: dict[str, str]) -> str:
         """Format loaded memory contents for injection into prompt.
 
+        Each source is labeled with its name/path, similar to how project
+        instructions are presented in development tools.
+
         Args:
             contents: Dict mapping source paths/names to content.
 
         Returns:
-            Formatted string with all memory contents concatenated.
+            Formatted string with labeled memory contents.
         """
         if not contents:
-            return "(No memory loaded)"
+            return ""
 
         sections = []
 
@@ -225,10 +220,10 @@ class MemoryMiddleware(AgentMiddleware):
 
         for key in keys:
             if contents.get(key):
-                sections.append(contents[key])
+                sections.append(f"Contents of {key}:\n\n{contents[key]}")
 
         if not sections:
-            return "(No memory loaded)"
+            return ""
 
         return "\n\n".join(sections)
 
@@ -366,7 +361,8 @@ class MemoryMiddleware(AgentMiddleware):
         """Inject memory content into the system prompt.
 
         Uses append_to_system_message to properly handle content blocks
-        instead of just string concatenation.
+        instead of just string concatenation. Skips injection entirely
+        when no memory content is loaded.
 
         Args:
             request: Model request to modify.
@@ -377,6 +373,9 @@ class MemoryMiddleware(AgentMiddleware):
         contents = request.state.get("memory_contents", {})
         memory_locations = self._format_memory_locations(contents)
         memory_contents = self._format_memory_contents(contents)
+
+        if not memory_contents:
+            return request
 
         memory_section = self.system_prompt_template.format(
             memory_locations=memory_locations,

@@ -411,22 +411,11 @@ async def _alist_skills(
 
 
 SKILLS_SYSTEM_PROMPT = """
-## Skills Library
+# Available Skills
 
-{skills_locations}
-
-**Available Skills:**
+The following skills are specialized workflows available to you. When the user's request matches a skill's domain, read the full SKILL.md instructions before proceeding.
 
 {skills_list}
-
-**How to Use:**
-
-Skills use progressive disclosure — you see name and description above, read full instructions when needed:
-- Check if user's task matches a skill's domain
-- Read SKILL.md via the path shown for full instructions
-- Skills may include helper scripts — use absolute paths
-
-When in doubt, check if a skill exists for the task.
 """
 
 
@@ -534,12 +523,13 @@ class SkillsMiddleware(AgentMiddleware):
     def _format_skills_list(self, skills: list[SkillMetadata]) -> str:
         """Format skills metadata for display in system prompt."""
         if not skills:
-            paths = [f"{source_path}" for source_path in self.sources]
-            return f"(No skills available yet. You can create skills in {' or '.join(paths)})"
+            return ""
 
         lines = []
         for skill in skills:
             lines.append(f"- **{skill['name']}**: {skill['description']}")
+            if skill.get("allowed_tools"):
+                lines.append(f"  -> Allowed tools: {', '.join(skill['allowed_tools'])}")
             lines.append(f"  -> Read `{skill['path']}` for full instructions")
 
         return "\n".join(lines)
@@ -548,7 +538,8 @@ class SkillsMiddleware(AgentMiddleware):
         """Inject skills documentation into a model request's system prompt.
 
         Uses append_to_system_message to properly handle content blocks
-        instead of just string concatenation.
+        instead of just string concatenation. Skips injection entirely
+        when no skills are available.
 
         Args:
             request: Model request to modify
@@ -559,6 +550,9 @@ class SkillsMiddleware(AgentMiddleware):
         skills_metadata = request.state.get("skills_metadata", [])
         skills_locations = self._format_skills_locations()
         skills_list = self._format_skills_list(skills_metadata)
+
+        if not skills_list:
+            return request
 
         skills_section = self.system_prompt_template.format(
             skills_locations=skills_locations,
