@@ -413,7 +413,7 @@ async def _alist_skills(
 SKILLS_SYSTEM_PROMPT = """
 # Available Skills
 
-The following skills are specialized workflows available to you. When the user's request matches a skill's domain, read the full SKILL.md instructions before proceeding.
+The following skills are specialized workflows available to you. When the user's request matches a skill's domain, read the SKILL.md for full instructions before proceeding. Each skill is a directory that may contain helper scripts, images, and other supporting files — use absolute paths when referencing them.
 
 {skills_list}
 """
@@ -527,10 +527,11 @@ class SkillsMiddleware(AgentMiddleware):
 
         lines = []
         for skill in skills:
+            skill_dir = str(PurePosixPath(skill["path"]).parent)
             lines.append(f"- **{skill['name']}**: {skill['description']}")
             if skill.get("allowed_tools"):
                 lines.append(f"  -> Allowed tools: {', '.join(skill['allowed_tools'])}")
-            lines.append(f"  -> Read `{skill['path']}` for full instructions")
+            lines.append(f"  -> `{skill_dir}/` (read SKILL.md for full instructions)")
 
         return "\n".join(lines)
 
