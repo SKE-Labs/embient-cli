@@ -100,7 +100,9 @@ class MemoryStateUpdate(TypedDict):
 MEMORY_SYSTEM_PROMPT = """
 # User Preferences & Instructions
 
-The following are the user's personal preferences and instructions. They reflect the user's trading style, risk management approach, research methodology, and other guidelines that should inform your analysis and recommendations. Adhere to them closely — these instructions override default behavior.
+The user's personal preferences and instructions are shown below. They reflect the user's trading style, risk management rules, research methodology, and other guidelines.
+
+IMPORTANT: You MUST follow these instructions exactly as written — they override default behavior. Any specific numbers, ratios, or thresholds (e.g., risk:reward ratios, position sizes, stop loss rules) are strict constraints, not suggestions. Never deviate from them unless the user explicitly asks you to in the current conversation.
 
 {memory_contents}
 """
