@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.11, <4.0"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
@@ -704,7 +704,7 @@ wheels = [
 
 [[package]]
 name = "deepanalysts"
-version = "0.1.5"
+version = "0.1.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
@@ -714,9 +714,9 @@ dependencies = [
     { name = "tenacity" },
     { name = "wcmatch" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/48/b3/10db1fc092f25b336b813ae8c776d4c761d355aa002cd1dc5d33cca1dbda/deepanalysts-0.1.5.tar.gz", hash = "sha256:15d32d4941e46f6e96a0fdb90d7bbc60e11aeacb1a7efe96a8ef81200267a71f", size = 70289, upload-time = "2026-02-05T09:56:01.695Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f4/a4/3078ad3c3736a01903320b53b4b1202ea64f217a58f41a4c0a86ad30f000/deepanalysts-0.1.6.tar.gz", hash = "sha256:eb7f0b7e07d91a41fe07384b237fb5af6977bbd272ef704fb9134ae79920ea72", size = 70698, upload-time = "2026-02-12T10:44:25.29Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2c/08/489031efb3fd6687eef8651a6da06c2c79fbb4c0e6a1829afb344d600a01/deepanalysts-0.1.5-py3-none-any.whl", hash = "sha256:567592c9e8878821e107e41038f3d000b9b9c823c4a90d0e46955877504baf76", size = 70626, upload-time = "2026-02-05T09:56:03.05Z" },
+    { url = "https://files.pythonhosted.org/packages/5b/5d/e8ebfa15dee873d0491444ffa06adcb327f869106ea38ae16984191a2cbc/deepanalysts-0.1.6-py3-none-any.whl", hash = "sha256:a2494ded00ee5d39b6888002b1b3802540f78c31c8c52607ad95da2afe7f6e42", size = 71057, upload-time = "2026-02-12T10:44:26.226Z" },
 ]
 
 [[package]]
@@ -751,7 +751,7 @@ wheels = [
 
 [[package]]
 name = "embient"
-version = "0.1.5"
+version = "0.1.6"
 source = { editable = "." }
 dependencies = [
     { name = "aiosqlite" },
@@ -805,7 +805,7 @@ test = [
 requires-dist = [
     { name = "aiosqlite", specifier = ">=0.19.0" },
     { name = "daytona", specifier = ">=0.113.0" },
-    { name = "deepanalysts", specifier = ">=0.1.5" },
+    { name = "deepanalysts", specifier = ">=0.1.6" },
     { name = "httpx", specifier = ">=0.28.0" },
     { name = "kaleido", specifier = ">=0.4.0" },
     { name = "langchain", specifier = ">=1.2.3,<2.0.0" },
