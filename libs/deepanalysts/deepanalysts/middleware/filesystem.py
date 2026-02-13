@@ -264,8 +264,17 @@ All file paths must start with a /.
 
 EXECUTION_SYSTEM_PROMPT = """## Execute Tool `execute`
 
-You have access to an `execute` tool for running shell commands in a sandboxed environment.
-Use this tool to run commands, scripts, tests, builds, and other shell operations.
+You have access to an `execute` tool for running Python scripts and calculations in a sandboxed environment.
+Use this tool for trading calculations, running analysis scripts, and other computational tasks.
+
+Common use cases:
+- Fibonacci retracement/extension levels
+- Position sizing and risk management calculations
+- Risk/reward ratio analysis
+- Optimal trade entry and exit calculations
+- Portfolio allocation math
+- Custom indicator calculations
+- Running skill scripts for automated workflows
 
 - execute: run a shell command in the sandbox (returns output and exit code)"""
 
