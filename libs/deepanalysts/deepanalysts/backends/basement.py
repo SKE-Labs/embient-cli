@@ -11,7 +11,9 @@ provider can be a static token, a callable, or a context variable getter.
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from deepanalysts.clients.basement import BasementClient, basement_client
@@ -146,6 +148,7 @@ class BasementSkillsLoader:
         token_provider: Callable[[], str | None] | None = None,
         store: BaseStore | None = None,
         supabase_url: str | None = None,
+        built_in_dirs: list[str] | None = None,
     ) -> None:
         """Initialize loader with optional store for caching.
 
@@ -155,6 +158,8 @@ class BasementSkillsLoader:
             store: LangGraph Store instance for writing skill content.
                    If None, skills won't be available via read_file.
             supabase_url: Supabase URL for asset downloads. Required if store is provided.
+            built_in_dirs: Directories containing built-in skills (SKILL.md files).
+                          These are loaded from the filesystem and merged with API skills.
         """
         self._client = client or basement_client
         self._token_provider = token_provider
@@ -162,12 +167,86 @@ class BasementSkillsLoader:
         self._store = store
         self._supabase_url = supabase_url
         self._written_skills: set[str] = set()  # Track which skills already written
+        self._built_in_dirs = built_in_dirs or []
+        self._built_in_cache: list[dict[str, Any]] | None = None
 
     def _get_token(self) -> str | None:
         """Get JWT token from provider."""
         if self._token_provider:
             return self._token_provider()
         return None
+
+    def _load_built_in_skills(self) -> list[dict[str, Any]]:
+        """Load built-in skills from filesystem directories.
+
+        Scans each built-in directory for subdirectories containing SKILL.md,
+        parses YAML frontmatter, and returns skill dicts in the same format
+        as the Basement API response.
+
+        Returns:
+            List of skill dicts with name, description, content, path fields.
+        """
+        if self._built_in_cache is not None:
+            return self._built_in_cache
+
+        skills: list[dict[str, Any]] = []
+        frontmatter_pattern = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
+
+        for built_in_dir in self._built_in_dirs:
+            dir_path = Path(built_in_dir)
+            if not dir_path.is_dir():
+                logger.warning(f"Built-in skills directory not found: {built_in_dir}")
+                continue
+
+            for skill_dir in sorted(dir_path.iterdir()):
+                if not skill_dir.is_dir():
+                    continue
+
+                skill_md = skill_dir / "SKILL.md"
+                if not skill_md.exists():
+                    continue
+
+                try:
+                    content = skill_md.read_text(encoding="utf-8")
+                except Exception as e:
+                    logger.warning(f"Error reading {skill_md}: {e}")
+                    continue
+
+                # Parse YAML frontmatter
+                match = frontmatter_pattern.match(content)
+                if not match:
+                    logger.warning(f"No valid frontmatter in {skill_md}")
+                    continue
+
+                import yaml
+
+                try:
+                    frontmatter = yaml.safe_load(match.group(1))
+                except yaml.YAMLError as e:
+                    logger.warning(f"Invalid YAML in {skill_md}: {e}")
+                    continue
+
+                if not isinstance(frontmatter, dict):
+                    continue
+
+                name = frontmatter.get("name", "")
+                description = frontmatter.get("description", "")
+                if not name or not description:
+                    continue
+
+                skills.append({
+                    "name": name,
+                    "description": description,
+                    "content": content,
+                    "path": f"/skills/{name}",
+                    "target_agents": [],  # Built-in skills available to all agents
+                    "metadata": frontmatter.get("metadata", {}),
+                    "assets": [],
+                })
+
+        self._built_in_cache = skills
+        logger.debug(f"Loaded {len(skills)} built-in skills from filesystem")
+        return skills
 
     async def load_skills(
         self,
@@ -199,20 +278,26 @@ class BasementSkillsLoader:
             skills = self._cache[jwt_token]
             logger.debug("Using cached skills from Basement API")
 
+        # Merge built-in skills with API skills (API takes precedence)
+        built_in = self._load_built_in_skills()
+        api_names = {s.get("name") for s in skills}
+        all_skills = list(skills)
+        for bi_skill in built_in:
+            if bi_skill["name"] not in api_names:
+                all_skills.append(bi_skill)
+
         # Write skills to store for read_file access (only on first load per user)
         if self._store and user_id:
             needs_write = any(
                 f"{user_id}:{self._get_store_path(skill)}/SKILL.md"
                 not in self._written_skills
-                for skill in skills
+                for skill in all_skills
                 if skill.get("path")
             )
             if needs_write:
-                await self._write_skills_to_store(skills, user_id)
+                await self._write_skills_to_store(all_skills, user_id)
         elif not user_id and self._store:
             logger.warning("No user_id provided to load_skills, skipping store write")
-
-        all_skills = self._cache[jwt_token]
 
         # Filter by target_agents and convert to SkillMetadata
         filtered: list[SkillMetadata] = []
@@ -431,10 +516,17 @@ class BasementSkillsLoader:
         if isinstance(allowed_tools, str):
             allowed_tools = allowed_tools.split(" ") if allowed_tools else []
 
+        # API returns path as skill directory (e.g., "/skills/cup-and-handle").
+        # SkillMetadata.path should point to SKILL.md for consistency with
+        # file-based loading, so _format_skills_list can derive the directory.
+        skill_path = skill.get("path", "")
+        if skill_path and not skill_path.endswith("/SKILL.md"):
+            skill_path = skill_path.rstrip("/") + "/SKILL.md"
+
         return SkillMetadata(
             name=skill.get("name", ""),
             description=skill.get("description", ""),
-            path=skill.get("path", ""),
+            path=skill_path,
             license=skill.get("license"),
             compatibility=skill.get("compatibility"),
             metadata=metadata,
@@ -445,6 +537,7 @@ class BasementSkillsLoader:
         """Clear the skills cache and written tracking."""
         self._cache.clear()
         self._written_skills.clear()
+        self._built_in_cache = None
 
 
 __all__ = ["BasementMemoryLoader", "BasementSkillsLoader"]
