@@ -1,8 +1,18 @@
 """Unit tests for skills loading functionality."""
 
 from pathlib import Path
+from unittest.mock import patch
+
+import pytest
 
 from embient.skills.load import list_skills
+
+
+@pytest.fixture(autouse=True)
+def _no_builtin_skills(tmp_path: Path):
+    """Prevent built-in skills from interfering with test assertions."""
+    with patch("embient.skills.load.BUILT_IN_SKILLS_DIR", tmp_path / "no_builtins"):
+        yield
 
 
 class TestListSkillsSingleDirectory:
@@ -290,3 +300,59 @@ Content
         skills = list_skills(user_skills_dir=user_dir, project_skills_dir=None)
         assert len(skills) == 1
         assert skills[0]["name"] == "valid-skill"
+
+
+class TestListSkillsBuiltIn:
+    """Test that built-in skills are loaded correctly."""
+
+    def test_built_in_skills_loaded(self) -> None:
+        """Test that built-in skills are loaded when no user/project dirs given."""
+        # Remove the autouse mock to test real built-in loading
+        from embient.skills.load import BUILT_IN_SKILLS_DIR, list_skills as real_list_skills
+
+        if not BUILT_IN_SKILLS_DIR.exists():
+            pytest.skip("No built-in skills directory")
+
+        # Call directly without the autouse patch
+        with patch("embient.skills.load.BUILT_IN_SKILLS_DIR", BUILT_IN_SKILLS_DIR):
+            skills = real_list_skills(user_skills_dir=None, project_skills_dir=None)
+
+        builtin_names = {s["name"] for s in skills if s["source"] == "built-in"}
+        assert "skill-creator" in builtin_names
+
+    def test_user_skill_overrides_builtin(self, tmp_path: Path) -> None:
+        """Test that user skills override built-in skills with same name."""
+        from embient.skills.load import BUILT_IN_SKILLS_DIR
+
+        # Create a built-in skills dir with a skill
+        builtin_dir = tmp_path / "builtins"
+        builtin_dir.mkdir()
+        skill_dir = builtin_dir / "test-skill"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text("""---
+name: test-skill
+description: Built-in version
+---
+Content
+""")
+
+        # Create a user skills dir with same-named skill
+        user_dir = tmp_path / "user_skills"
+        user_dir.mkdir()
+        user_skill_dir = user_dir / "test-skill"
+        user_skill_dir.mkdir()
+        (user_skill_dir / "SKILL.md").write_text("""---
+name: test-skill
+description: User version
+---
+Content
+""")
+
+        with patch("embient.skills.load.BUILT_IN_SKILLS_DIR", builtin_dir):
+            skills = list_skills(user_skills_dir=user_dir, project_skills_dir=None)
+
+        # User version should win
+        test_skills = [s for s in skills if s["name"] == "test-skill"]
+        assert len(test_skills) == 1
+        assert test_skills[0]["description"] == "User version"
+        assert test_skills[0]["source"] == "user"

@@ -749,6 +749,180 @@ class BasementClient:
             logger.error(f"Error fetching memories: {e}")
             return []
 
+    async def list_memories(self, token: str) -> list[dict] | None:
+        """List all memories for the authenticated user.
+
+        Args:
+            token: JWT authentication token
+
+        Returns:
+            List of full UserMemory objects (id, name, description, content, is_active),
+            or None on failure
+        """
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v1/memories",
+                    headers=self._headers(token),
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get("response", [])
+                if response.status_code in (401, 403):
+                    raise AuthenticationError("Session expired or invalid. Run 'embient login' to re-authenticate.")
+                logger.error(f"Failed to list memories: {response.status_code} - {response.text}")
+                return None
+
+        except httpx.TimeoutException:
+            logger.error("Timeout while listing memories")
+            return None
+        except AuthenticationError:
+            raise
+        except Exception as e:
+            logger.error(f"Error listing memories: {e}")
+            return None
+
+    async def create_memory(
+        self,
+        token: str,
+        name: str,
+        content: str,
+        description: str | None = None,
+    ) -> dict | None:
+        """Create a new memory.
+
+        Args:
+            token: JWT authentication token
+            name: Memory name (max 100 chars, must be unique per user)
+            content: Memory content (max 50KB)
+            description: Optional description
+
+        Returns:
+            Created memory dict or None on failure
+        """
+        try:
+            payload: dict = {"name": name, "content": content}
+            if description is not None:
+                payload["description"] = description
+
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(
+                    f"{self.base_url}/api/v1/memories",
+                    json=payload,
+                    headers=self._headers(token),
+                )
+
+                if response.status_code == 201:
+                    data = response.json()
+                    logger.info(f"Created memory: {name}")
+                    return data.get("response")
+                if response.status_code in (401, 403):
+                    raise AuthenticationError("Session expired or invalid. Run 'embient login' to re-authenticate.")
+                logger.error(f"Failed to create memory: {response.status_code} - {response.text}")
+                return None
+
+        except httpx.TimeoutException:
+            logger.error("Timeout while creating memory")
+            return None
+        except AuthenticationError:
+            raise
+        except Exception as e:
+            logger.error(f"Error creating memory: {e}")
+            return None
+
+    async def update_memory(
+        self,
+        token: str,
+        memory_id: str,
+        content: str | None = None,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> dict | None:
+        """Update an existing memory.
+
+        Args:
+            token: JWT authentication token
+            memory_id: The memory ID to update
+            content: New content
+            name: New name
+            description: New description
+
+        Returns:
+            Updated memory dict or None on failure
+        """
+        try:
+            payload: dict = {}
+            if content is not None:
+                payload["content"] = content
+            if name is not None:
+                payload["name"] = name
+            if description is not None:
+                payload["description"] = description
+
+            if not payload:
+                logger.warning("No fields provided to update memory")
+                return None
+
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.put(
+                    f"{self.base_url}/api/v1/memories/{memory_id}",
+                    json=payload,
+                    headers=self._headers(token),
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    logger.info(f"Updated memory ID {memory_id}")
+                    return data.get("response")
+                if response.status_code in (401, 403):
+                    raise AuthenticationError("Session expired or invalid. Run 'embient login' to re-authenticate.")
+                logger.error(f"Failed to update memory: {response.status_code} - {response.text}")
+                return None
+
+        except httpx.TimeoutException:
+            logger.error("Timeout while updating memory")
+            return None
+        except AuthenticationError:
+            raise
+        except Exception as e:
+            logger.error(f"Error updating memory: {e}")
+            return None
+
+    async def delete_memory(self, token: str, memory_id: str) -> bool:
+        """Delete a memory.
+
+        Args:
+            token: JWT authentication token
+            memory_id: The memory ID to delete
+
+        Returns:
+            True if deleted, False on failure
+        """
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.delete(
+                    f"{self.base_url}/api/v1/memories/{memory_id}",
+                    headers=self._headers(token),
+                )
+
+                if response.status_code in (200, 204):
+                    logger.info(f"Deleted memory ID {memory_id}")
+                    return True
+                if response.status_code in (401, 403):
+                    raise AuthenticationError("Session expired or invalid. Run 'embient login' to re-authenticate.")
+                logger.error(f"Failed to delete memory: {response.status_code} - {response.text}")
+                return False
+
+        except httpx.TimeoutException:
+            logger.error("Timeout while deleting memory")
+            return False
+        except AuthenticationError:
+            raise
+        except Exception as e:
+            logger.error(f"Error deleting memory: {e}")
+            return False
+
     async def get_active_skills(self, token: str) -> list[dict]:
         """Get active skills for the authenticated user.
 

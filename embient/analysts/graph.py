@@ -5,6 +5,7 @@ using the `task` tool pattern instead of explicit StateGraph routing.
 """
 
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Any
 
 from deepanalysts.backends import BackendProtocol, FilesystemBackend
@@ -27,9 +28,13 @@ from langgraph.types import Checkpointer
 
 from embient.trading_tools import (
     calculate_position_size,
+    create_memory,
     create_trading_signal,
+    delete_memory,
     get_active_trading_signals,
     get_latest_candle,
+    list_memories,
+    update_memory,
     update_trading_signal,
 )
 
@@ -93,6 +98,14 @@ _SIGNAL_TOOLS = [
     calculate_position_size,
     create_trading_signal,
     update_trading_signal,
+]
+
+# Memory tools for orchestrator (manages user memories directly)
+_MEMORY_TOOLS = [
+    list_memories,
+    create_memory,
+    update_memory,
+    delete_memory,
 ]
 
 
@@ -178,6 +191,10 @@ def create_deep_analysts(
     # Use provided backend or default to local filesystem
     fs_backend = backend if backend is not None else FilesystemBackend()
 
+    # Built-in skills directory (memory-creator, etc.) + user-provided skills
+    built_in_skills_dir = str(Path(__file__).parent.parent / "built_in_skills")
+    all_skills = [built_in_skills_dir, *list(skills or [])]
+
     # Build subagent middleware factory
     def get_subagent_middleware(subagent_name: str) -> list[AgentMiddleware]:
         """Create middleware stack for a specific subagent.
@@ -190,8 +207,8 @@ def create_deep_analysts(
             ToolErrorHandlingMiddleware(),  # First: catch all tool errors
         ]
 
-        if skills:
-            subagent_middleware.append(SkillsMiddleware(sources=skills, backend=fs_backend))
+        if all_skills:
+            subagent_middleware.append(SkillsMiddleware(sources=all_skills, backend=fs_backend))
 
         subagent_middleware.extend(
             [
@@ -221,8 +238,8 @@ def create_deep_analysts(
     if memory:
         middleware.append(MemoryMiddleware(sources=memory, backend=fs_backend))
 
-    if skills:
-        middleware.append(SkillsMiddleware(sources=skills, backend=fs_backend))
+    if all_skills:
+        middleware.append(SkillsMiddleware(sources=all_skills, backend=fs_backend))
 
     middleware.extend(
         [
@@ -248,8 +265,8 @@ def create_deep_analysts(
         ]
     )
 
-    # Combine signal tools with any additional tools passed in
-    all_tools = list(_SIGNAL_TOOLS) + list(tools or [])
+    # Combine signal tools, memory tools, and any additional tools passed in
+    all_tools = list(_SIGNAL_TOOLS) + list(_MEMORY_TOOLS) + list(tools or [])
 
     return create_agent(
         model,

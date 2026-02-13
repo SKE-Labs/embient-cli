@@ -704,7 +704,7 @@ wheels = [
 
 [[package]]
 name = "deepanalysts"
-version = "0.1.6"
+version = "0.1.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
@@ -714,9 +714,9 @@ dependencies = [
     { name = "tenacity" },
     { name = "wcmatch" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f4/a4/3078ad3c3736a01903320b53b4b1202ea64f217a58f41a4c0a86ad30f000/deepanalysts-0.1.6.tar.gz", hash = "sha256:eb7f0b7e07d91a41fe07384b237fb5af6977bbd272ef704fb9134ae79920ea72", size = 70698, upload-time = "2026-02-12T10:44:25.29Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/48/a8/f9cc097b5de05137b3a32f25bb688669ea380da81f2e6809de13ea4b51b5/deepanalysts-0.1.9.tar.gz", hash = "sha256:56585f83013158505599cc65f5a7df2fa80c56ad10452e67a6134e6f469d0964", size = 72872, upload-time = "2026-02-13T08:21:51.576Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5b/5d/e8ebfa15dee873d0491444ffa06adcb327f869106ea38ae16984191a2cbc/deepanalysts-0.1.6-py3-none-any.whl", hash = "sha256:a2494ded00ee5d39b6888002b1b3802540f78c31c8c52607ad95da2afe7f6e42", size = 71057, upload-time = "2026-02-12T10:44:26.226Z" },
+    { url = "https://files.pythonhosted.org/packages/69/eb/111ce37377426af2d7ae558d6e06b1d1f3e32ce7a66e712e7da632579905/deepanalysts-0.1.9-py3-none-any.whl", hash = "sha256:29fbe27e8c27bbc6ed0ea600c0d1cc72100eacb345827812c196ade6e7696f38", size = 72163, upload-time = "2026-02-13T08:21:50.614Z" },
 ]
 
 [[package]]
@@ -805,7 +805,7 @@ test = [
 requires-dist = [
     { name = "aiosqlite", specifier = ">=0.19.0" },
     { name = "daytona", specifier = ">=0.113.0" },
-    { name = "deepanalysts", specifier = ">=0.1.6" },
+    { name = "deepanalysts", specifier = ">=0.1.9" },
     { name = "httpx", specifier = ">=0.28.0" },
     { name = "kaleido", specifier = ">=0.4.0" },
     { name = "langchain", specifier = ">=1.2.3,<2.0.0" },

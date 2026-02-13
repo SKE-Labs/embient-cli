@@ -9,6 +9,12 @@ from embient.trading_tools.market_data import (
     get_indicator,
     get_latest_candle,
 )
+from embient.trading_tools.memory import (
+    create_memory,
+    delete_memory,
+    list_memories,
+    update_memory,
+)
 from embient.trading_tools.research import (
     get_economics_calendar,
     get_financial_news,
@@ -38,4 +44,9 @@ __all__ = [
     "create_trading_signal",
     "update_trading_signal",
     "calculate_position_size",
+    # Memory
+    "list_memories",
+    "create_memory",
+    "update_memory",
+    "delete_memory",
 ]

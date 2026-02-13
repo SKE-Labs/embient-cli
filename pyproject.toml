@@ -6,7 +6,7 @@ readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11,<4.0"
 dependencies = [
-    "deepanalysts>=0.1.6",
+    "deepanalysts>=0.1.9",
     "langchain>=1.2.3,<2.0.0",
     "langchain-openai>=1.1.7,<2.0.0",
     "langgraph-checkpoint-sqlite>=3.0.0,<4.0.0",
@@ -131,6 +131,6 @@ ignore-var-parameters = true
 timeout = 10 # Default timeout for all tests (can be overridden per-test)
 
 # Note: deepanalysts is now published to PyPI
-# For local development, uncomment the following:
+# For production, comment out the [tool.uv.sources] section below
 # [tool.uv.sources]
 # deepanalysts = { path = "libs/deepanalysts", editable = true }

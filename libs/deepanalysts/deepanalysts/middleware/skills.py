@@ -589,6 +589,9 @@ class SkillsMiddleware(AgentMiddleware):
             return None
 
         # Resolve backend (supports both direct instances and factory functions)
+        if not self._backend or not self.sources:
+            return SkillsStateUpdate(skills_metadata=[])
+
         backend = self._get_backend(state, runtime, config)
         all_skills: dict[str, SkillMetadata] = {}
 
@@ -607,7 +610,10 @@ class SkillsMiddleware(AgentMiddleware):
     ) -> SkillsStateUpdate | None:
         """Load skills metadata before agent execution (async).
 
-        Loads skills from API (if loader configured) or from backend sources.
+        Loads skills from API (if loader configured) and/or from backend sources.
+        When both are configured, results are merged with API-loaded skills taking
+        precedence (backend skills are added only if not already loaded from API).
+
         Only loads if not already present in state.
 
         Args:
@@ -624,7 +630,7 @@ class SkillsMiddleware(AgentMiddleware):
 
         skills_metadata: list[SkillMetadata] = []
 
-        # Priority 1: Use loader if configured (API)
+        # Load from API loader if configured
         if self.loader:
             # Get user_id for store namespace (multi-tenant isolation)
             user_id = config.get("configurable", {}).get("user_id")
@@ -637,19 +643,21 @@ class SkillsMiddleware(AgentMiddleware):
                     f"for agent '{self.agent_name}'"
                 )
 
-        # Priority 2: Fall back to backend/sources
-        elif self._backend and self.sources:
+        # Also load from backend/sources (for built-in skills and file-based skills)
+        if self._backend and self.sources:
             backend = self._get_backend(state, runtime, config)
-            all_skills: dict[str, SkillMetadata] = {}
+            all_backend_skills: dict[str, SkillMetadata] = {}
 
-            # Load skills from each source in order
-            # Later sources override earlier ones (last one wins)
             for source_path in self.sources:
                 source_skills = await _alist_skills(backend, source_path)
                 for skill in source_skills:
-                    all_skills[skill["name"]] = skill
+                    all_backend_skills[skill["name"]] = skill
 
-            skills_metadata = list(all_skills.values())
+            # API-loaded skills take precedence — don't override them
+            loaded_names = {s["name"] for s in skills_metadata}
+            for skill in all_backend_skills.values():
+                if skill["name"] not in loaded_names:
+                    skills_metadata.append(skill)
 
         return SkillsStateUpdate(skills_metadata=skills_metadata)
 
