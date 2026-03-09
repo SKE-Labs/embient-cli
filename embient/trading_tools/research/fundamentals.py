@@ -28,7 +28,6 @@ class FundamentalsSchema(BaseModel):
         "institutional_holders",
         "earnings_calendar",
         "price_target",
-        "recommendations",
         "earning_estimate",
         "revenue_estimate",
         "eps_trend",
@@ -63,7 +62,6 @@ async def get_fundamentals(
     - institutional_holders: Major institutional investors
     - earnings_calendar: Next earnings date and estimates
     - price_target: Analyst price targets
-    - recommendations: Buy/sell/hold consensus
     - earning_estimate: Analyst earnings forecasts
     - revenue_estimate: Revenue projections
     - eps_trend: EPS trend analysis

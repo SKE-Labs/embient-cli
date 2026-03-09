@@ -45,7 +45,7 @@ class ToolErrorHandlingMiddleware(AgentMiddleware):
         request: ToolCallRequest,
         handler: Callable[[ToolCallRequest], ToolMessage | Command],
     ) -> ToolMessage | Command:
-        """Wrap tool calls to catch ToolException.
+        """Wrap tool calls to catch ToolException and unexpected errors.
 
         Args:
             request: The tool call request being processed.
@@ -69,13 +69,27 @@ class ToolErrorHandlingMiddleware(AgentMiddleware):
                 content=f"Tool error: {e}",
                 tool_call_id=request.tool_call["id"],
             )
+        except Exception as e:
+            logger.error(
+                f"Tool '{request.tool_call['name']}' raised unexpected error: {e}",
+                exc_info=True,
+                extra={
+                    "event": "tool_unexpected_error",
+                    "tool": request.tool_call["name"],
+                    "error": str(e),
+                },
+            )
+            return ToolMessage(
+                content=f"Unexpected tool error: {e}",
+                tool_call_id=request.tool_call["id"],
+            )
 
     async def awrap_tool_call(
         self,
         request: ToolCallRequest,
         handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command]],
     ) -> ToolMessage | Command:
-        """(async) Wrap tool calls to catch ToolException.
+        """(async) Wrap tool calls to catch ToolException and unexpected errors.
 
         Args:
             request: The tool call request being processed.
@@ -97,5 +111,19 @@ class ToolErrorHandlingMiddleware(AgentMiddleware):
             )
             return ToolMessage(
                 content=f"Tool error: {e}",
+                tool_call_id=request.tool_call["id"],
+            )
+        except Exception as e:
+            logger.error(
+                f"Tool '{request.tool_call['name']}' raised unexpected error: {e}",
+                exc_info=True,
+                extra={
+                    "event": "tool_unexpected_error",
+                    "tool": request.tool_call["name"],
+                    "error": str(e),
+                },
+            )
+            return ToolMessage(
+                content=f"Unexpected tool error: {e}",
                 tool_call_id=request.tool_call["id"],
             )
