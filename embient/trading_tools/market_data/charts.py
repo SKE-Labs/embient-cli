@@ -187,20 +187,30 @@ async def generate_chart(
     from_date: str | None = None,
     to_date: str | None = None,
 ) -> dict:
-    """Generates a candlestick chart for an asset locally.
+    """Generates a candlestick chart image for visual analysis.
 
     Usage:
     - Call with symbol, interval, and exchange to generate a chart image
     - Optionally pass from_date and/or to_date to render a specific date range
     - Charts show candlesticks and volume
-    - Call multiple charts in parallel for multi-timeframe analysis
+    - STRONGLY recommended: Call multiple charts in parallel for multi-timeframe analysis
+
+    When NOT to Use:
+    - Just need current price → use get_latest_candle (much faster)
+    - Need exact price at a specific date → use get_candles_around_date
+    - Need indicator values → use get_indicator
+
+    Parameter constraints:
+    - interval: One of [1d, 4h, 1h, 30m, 15m, 5m]
+    - from_date/to_date: ISO 8601 format. Keep ranges reasonable:
+      - 1d: up to 2 years. 1h-4h: up to 6 months. 15m-30m: up to 2 weeks. 5m: up to 1 week
 
     Tool references:
     - Use get_latest_candle for current price only (faster)
     - Use get_candles_around_date for exact historical data points
     - Use get_indicator for technical indicator values
 
-    Returns: Dictionary with local file path to the generated chart PNG.
+    Returns: Dictionary with {"type": "image_url", "image_url": "file://path.png"}.
     """
     token = get_jwt_token()
     if not token:

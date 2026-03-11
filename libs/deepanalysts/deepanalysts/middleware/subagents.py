@@ -41,8 +41,8 @@ class SubAgent(TypedDict):
     system_prompt: str
     """The system prompt for this agent."""
 
-    tools: Sequence[BaseTool | Callable | dict[str, Any]]
-    """Tools available to this agent."""
+    tools: NotRequired[Sequence[BaseTool | Callable | dict[str, Any]]]
+    """Tools available to this agent. If not specified, inherits from default_tools."""
 
     model: NotRequired[str | BaseChatModel]
     """Model for this agent. Defaults to default_model."""
@@ -52,6 +52,9 @@ class SubAgent(TypedDict):
 
     interrupt_on: NotRequired[dict[str, bool | InterruptOnConfig]]
     """Tool interrupt configurations."""
+
+    skills: NotRequired[list[str]]
+    """Skill source paths for SkillsMiddleware."""
 
 
 class CompiledSubAgent(TypedDict):
@@ -70,7 +73,7 @@ DEFAULT_SUBAGENT_PROMPT = "Complete the task given to you using the available to
 # 1. The messages key is handled explicitly to ensure only the final message is included
 # 2. The todos and structured_response keys are excluded as they do not have a defined reducer
 #    and no clear meaning for returning them from a subagent to the main agent.
-_EXCLUDED_STATE_KEYS = {"messages", "todos", "structured_response"}
+_EXCLUDED_STATE_KEYS = {"messages", "todos", "structured_response", "skills_metadata", "memory_contents"}
 
 
 TASK_TOOL_DESCRIPTION = """Launch a specialized analyst subagent for trading tasks.
@@ -221,6 +224,15 @@ def _create_task_tool(
         task_description = task_description.format(available_agents=subagent_description_str)
 
     def _return_command_with_state_update(result: dict, tool_call_id: str) -> Command:
+        # Validate that the result contains a 'messages' key
+        if "messages" not in result:
+            error_msg = (
+                "CompiledSubAgent must return a state containing a 'messages' key. "
+                "Custom StateGraphs used with CompiledSubAgent should include 'messages' "
+                "in their state schema to communicate results back to the main agent."
+            )
+            raise ValueError(error_msg)
+
         state_update = {k: v for k, v in result.items() if k not in _EXCLUDED_STATE_KEYS}
         # Strip trailing whitespace to prevent API errors with Anthropic
         message_text = result["messages"][-1].text.rstrip() if result["messages"][-1].text else ""

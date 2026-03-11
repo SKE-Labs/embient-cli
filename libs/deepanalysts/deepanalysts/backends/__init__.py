@@ -15,7 +15,12 @@ from deepanalysts.backends.protocol import (
     WriteResult,
 )
 from deepanalysts.backends.sandbox import BaseSandbox, RestrictedSubprocessBackend
-from deepanalysts.backends.store import StoreBackend
+from deepanalysts.backends.store import (
+    BackendContext,
+    NamespaceFactory,
+    StoreBackend,
+    _validate_namespace,
+)
 
 __all__ = [
     # Protocols and types
@@ -30,6 +35,10 @@ __all__ = [
     "FileUploadResponse",
     "GrepMatch",
     "WriteResult",
+    # Store types
+    "BackendContext",
+    "NamespaceFactory",
+    "_validate_namespace",
     # Backend implementations
     "BaseSandbox",
     "CompositeBackend",

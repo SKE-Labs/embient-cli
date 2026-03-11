@@ -129,27 +129,44 @@ async def calculate_position_size(
 ) -> str:
     """Calculates position sizing (quantity, leverage, capital) based on risk management.
 
-    Usage:
+    ## When to Use
     - Call BEFORE create_trading_signal to determine proper sizing
     - Uses risk-based approach: position size derived from stop loss distance
     - Ensures consistent risk across all trades regardless of asset
 
+    ## When NOT to Use
+    - Analyzing existing positions → use get_active_trading_signals
+    - Getting current price → use get_latest_candle
+    - Creating signals → use create_trading_signal (after this tool)
+
     CRITICAL: create_trading_signal requires output from this tool:
     - quantity, leverage, capital_allocated are mandatory fields
+    - Never manually adjust these values — re-call this tool with different inputs instead
 
-    Calculation process:
+    ## Calculation Process
     1. risk_amount = account_balance x position_size_percent
     2. quantity = risk_amount / |entry_price - stop_loss|
     3. notional_value = quantity x entry_price
     4. leverage = notional_value / account_balance (capped at user's max_leverage)
 
+    ## Field Constraints
+    - entry_price: Must be > 0 and different from stop_loss
+    - stop_loss: Must be > 0 and different from entry_price
+    - position_size_percent: 0-100, uses profile default if omitted
+      - Recommended: 1-5% for conservative, 5-10% for aggressive
+    - If leverage exceeds user's max_leverage, quantity is automatically reduced
+
+    ## Output Fields
+    - Quantity: Exact number of units to trade (rounded by asset type)
+    - Leverage: Notional / balance (capped at max_leverage)
+    - Capital Allocated: Quantity x entry_price (margin requirement)
+    - Risk Amount: Dollars at risk if stop loss hits
+
     Tool references:
     - Use get_latest_candle to get current price for entry_price
-    - Pass output directly to create_trading_signal
+    - Pass ALL three outputs (quantity, leverage, capital_allocated) to create_trading_signal
 
     IMPORTANT: Requires authentication. Run 'embient login' first.
-
-    Returns: Position sizing details including quantity, leverage, and capital_allocated.
     """
     token = get_jwt_token()
     if not token:

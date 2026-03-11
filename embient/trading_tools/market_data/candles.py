@@ -38,6 +38,13 @@ async def get_latest_candle(symbol: str, exchange: str = "binance") -> str:
     - Returns close price as suggestion_price for create_trading_signal
     - Faster than generate_chart when you only need current price
 
+    When NOT to Use:
+    - Historical price lookup → use get_candles_around_date
+    - Visual chart analysis → use generate_chart
+    - Technical indicator values → use get_indicator
+
+    Output: Returns latest 5m OHLCV — Open, High, Low, Close (use for suggestion_price), Volume, Timestamp.
+
     Tool references:
     - Use get_candles_around_date for historical price lookup
     - Use get_indicator for technical analysis
@@ -103,13 +110,24 @@ async def get_candles_around_date(
     """Fetches candles around a specific date for precise price lookup.
 
     Usage:
-    - Use after visual chart analysis to get exact prices
-    - Returns multiple candles around the target date
+    - Use after visual chart analysis to get exact prices at key levels
+    - Returns ~21 candles centered on target date (10 before + target + 10 after)
     - Use for finding support/resistance levels at specific dates
 
+    When NOT to Use:
+    - Current price → use get_latest_candle (faster)
+    - Visual chart analysis → use generate_chart
+    - Technical indicators → use get_indicator
+
     NEVER:
-    - Estimate dates - derive from chart analysis
-    - Use for current price - use get_latest_candle instead
+    - Estimate or guess dates — derive from chart analysis or known events
+    - Use for current price — use get_latest_candle instead
+
+    Parameter guidance:
+    - interval: Choose based on analysis timeframe (1d for macro, 1h for swing, 15m for entries)
+    - date: ISO 8601 format. Time component optional (defaults to 00:00:00)
+
+    Output: Table with Datetime, Open, High, Low, Close (use for exact prices), Volume.
 
     Tool references:
     - Use get_latest_candle for current price

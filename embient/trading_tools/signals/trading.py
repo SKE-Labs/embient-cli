@@ -4,7 +4,6 @@ from langchain_core.tools import ToolException, tool
 from pydantic import BaseModel, Field
 
 from embient.clients import basement_client
-from embient.clients.basement import MonitoringQuotaError
 from embient.context import get_jwt_token, get_thread_id
 
 
@@ -33,9 +32,19 @@ async def get_active_trading_signals(
     - Review signal status and performance
     - Find signals to update or close
 
-    Parameters:
-    - status: Filter by status (active, expired, executed, cancelled, closed)
-    - ticker: Filter by specific trading pair
+    When NOT to Use:
+    - Creating new signals → use create_trading_signal
+    - Updating signals → use update_trading_signal
+    - Getting current price → use get_latest_candle
+
+    Output fields:
+    - status: active (waiting for entry), executed (position open), closed (P&L realized), cancelled, expired
+    - suggestion_price: Recommended entry price from analysis
+    - confidence_score: 0-100 from analyst findings
+
+    Tool references:
+    - Use create_trading_signal to create new signals
+    - Use update_trading_signal to modify existing signals
 
     IMPORTANT: Requires authentication. Run 'embient login' first.
     """
@@ -115,27 +124,37 @@ async def create_trading_signal(
     """Creates a new trading signal.
 
     CRITICAL: This tool requires prior technical analysis. Do NOT call without:
-    1. get_latest_candle - current price for suggestion_price
-    2. calculate_position_size - quantity, leverage, capital_allocated
+    1. get_latest_candle — current price for suggestion_price
+    2. calculate_position_size — quantity, leverage, capital_allocated
 
-    Required fields:
+    ## Field Descriptions & Quality Standards
+
     - symbol: Trading pair (e.g., "BTC/USDT")
-    - position: "BUY" or "SELL"
-    - entry_conditions: When to enter the trade
-    - suggestion_price: Recommended entry price
-    - stop_loss: Stop loss level
-    - confidence_score: 0-100 confidence rating
-    - rationale: Technical reasoning
-    - invalid_condition: What would invalidate this signal
+    - position: "BUY" or "SELL" — must match analyst bias direction
+    - entry_conditions: When to enter. Either immediate OR conditional (never mixed):
+      - Immediate: "4H close above 75,200 with RSI above 50"
+      - Conditional: Multi-step sequence with numbered steps
+    - suggestion_price: EXACT price from get_latest_candle — never estimated or rounded
+    - stop_loss: Structural break level from analyst's invalidation — must differ from entry
+    - confidence_score: 0-100, must reflect timeframe confluence:
+      - Never > 80 without HIGH confluence (all TF align)
+      - Never > 70 without at least MEDIUM confluence
+    - rationale: Must cite specific technicals from analyst (e.g., "Daily HH/HL, 1H supply zone, RSI divergence")
+    - invalid_condition: EXACT price level + timeframe + what structure breaks
+    - take_profit_levels: Must be ascending for BUY, descending for SELL
+    - quantity/leverage/capital_allocated: Must come from calculate_position_size output
 
     NEVER:
     - Create without calling calculate_position_size first
     - Invent price levels not derived from analysis
     - Create with confidence_score > 70 without strong confluence
+    - Set take_profit equal to stop_loss (meaningless R:R)
+    - Set entry_price equal to stop_loss (zero risk)
 
     Tool references:
     - Use calculate_position_size before this tool
     - Use get_latest_candle for current price
+    - Use get_active_trading_signals to check for existing signals on same pair
 
     IMPORTANT: Requires authentication. Run 'embient login' first.
     """
@@ -155,28 +174,22 @@ async def create_trading_signal(
     # Get thread_id from context if available
     thread_id = get_thread_id()
 
-    try:
-        result = await basement_client.create_trading_signal(
-            token=token,
-            symbol=symbol,
-            position=position,
-            entry_conditions=entry_conditions,
-            suggestion_price=suggestion_price,
-            stop_loss=stop_loss,
-            confidence_score=confidence_score,
-            rationale=rationale,
-            invalid_condition=invalid_condition,
-            take_profit_levels=take_profit_levels,
-            quantity=quantity,
-            leverage=leverage,
-            capital_allocated=capital_allocated,
-            thread_id=thread_id,
-        )
-    except MonitoringQuotaError as e:
-        raise ToolException(
-            f"Monitoring quota exceeded: {e}. "
-            "Consider upgrading your subscription plan or disabling monitoring on an existing signal."
-        ) from None
+    result = await basement_client.create_trading_signal(
+        token=token,
+        symbol=symbol,
+        position=position,
+        entry_conditions=entry_conditions,
+        suggestion_price=suggestion_price,
+        stop_loss=stop_loss,
+        confidence_score=confidence_score,
+        rationale=rationale,
+        invalid_condition=invalid_condition,
+        take_profit_levels=take_profit_levels,
+        quantity=quantity,
+        leverage=leverage,
+        capital_allocated=capital_allocated,
+        thread_id=thread_id,
+    )
 
     if not result:
         raise ToolException("Failed to create trading signal. Check API connection and parameters.")
@@ -230,6 +243,11 @@ async def update_trading_signal(
     - Adjust stop loss or take profit levels
     - Add reflection notes after trade closes
 
+    When NOT to Use:
+    - Creating new signals → use create_trading_signal
+    - Checking signal status → use get_active_trading_signals
+    - Position sizing → use calculate_position_size
+
     Status values:
     - active: Signal is live, waiting for entry
     - executed: Trade entered, position is OPEN
@@ -237,10 +255,18 @@ async def update_trading_signal(
     - cancelled: Signal invalidated
     - expired: Signal expired without execution
 
+    Field constraints:
+    - entry_price: Must be > 0 and reasonable vs suggestion_price
+    - exit_price: If set, status should be 'closed'
+    - stop_loss: For BUY positions, new SL should be >= current SL (never worse). For SELL, new SL <= current SL
+    - take_profit_levels: Must maintain order (ascending for BUY, descending for SELL)
+    - reflection: Post-trade notes should cite entry execution vs plan, whether thesis held, and improvements
+
     NEVER:
     - Update a signal you haven't retrieved with get_active_trading_signals
     - Set status to 'executed' without entry_price
     - Modify signals created by other users
+    - Adjust SL to a worse level (applies to ALL update mechanisms)
 
     Tool references:
     - Use get_active_trading_signals to find signal IDs first

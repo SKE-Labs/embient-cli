@@ -139,8 +139,6 @@ class BasementClient:
         capital_allocated: float | None = None,
         entry_plan_images: list[str] | None = None,
         invalid_condition_images: list[str] | None = None,
-        monitoring_enabled: bool | None = None,
-        monitoring_interval_minutes: int | None = None,
         thread_id: str | None = None,
         expires_at: str | None = None,
         auto_execute: bool | None = None,
@@ -164,8 +162,6 @@ class BasementClient:
             capital_allocated: Capital/margin allocated
             entry_plan_images: Chart analysis image URLs
             invalid_condition_images: Invalidation image URLs
-            monitoring_enabled: Enable AI monitoring
-            monitoring_interval_minutes: Monitoring frequency
             thread_id: Conversation thread ID
             expires_at: ISO 8601 expiry datetime
             auto_execute: Auto-execute flag
@@ -194,8 +190,6 @@ class BasementClient:
                 "capital_allocated": capital_allocated,
                 "entry_plan_images": entry_plan_images,
                 "invalid_condition_images": invalid_condition_images,
-                "monitoring_enabled": monitoring_enabled,
-                "monitoring_interval_minutes": monitoring_interval_minutes,
                 "thread_id": thread_id,
                 "expires_at": expires_at,
                 "auto_execute": auto_execute,
