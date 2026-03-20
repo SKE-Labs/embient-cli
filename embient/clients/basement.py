@@ -137,8 +137,7 @@ class BasementClient:
         quantity: float | None = None,
         leverage: float | None = None,
         capital_allocated: float | None = None,
-        entry_plan_images: list[str] | None = None,
-        invalid_condition_images: list[str] | None = None,
+        images: list[str] | None = None,
         thread_id: str | None = None,
         expires_at: str | None = None,
         auto_execute: bool | None = None,
@@ -160,8 +159,7 @@ class BasementClient:
             quantity: Suggested number of units
             leverage: Leverage multiplier (1.0-125.0)
             capital_allocated: Capital/margin allocated
-            entry_plan_images: Chart analysis image URLs
-            invalid_condition_images: Invalidation image URLs
+            images: Image URLs (chart analysis, invalidation visuals, etc.)
             thread_id: Conversation thread ID
             expires_at: ISO 8601 expiry datetime
             auto_execute: Auto-execute flag
@@ -188,8 +186,7 @@ class BasementClient:
                 "quantity": quantity,
                 "leverage": leverage,
                 "capital_allocated": capital_allocated,
-                "entry_plan_images": entry_plan_images,
-                "invalid_condition_images": invalid_condition_images,
+                "images": images,
                 "thread_id": thread_id,
                 "expires_at": expires_at,
                 "auto_execute": auto_execute,
@@ -244,12 +241,11 @@ class BasementClient:
         current_price: float | None = None,
         filled_quantity: float | None = None,
         invalid_condition: str | None = None,
-        invalid_condition_images: list[str] | None = None,
         stop_loss: float | None = None,
         take_profit_levels: list[float] | None = None,
         entry_conditions: str | None = None,
         rationale: str | None = None,
-        entry_plan_images: list[str] | None = None,
+        images: list[str] | None = None,
     ) -> dict | None:
         """Update an existing trading signal.
 
@@ -266,12 +262,11 @@ class BasementClient:
             current_price: Current market price
             filled_quantity: Filled quantity
             invalid_condition: Invalidation conditions
-            invalid_condition_images: Invalidation image URLs
             stop_loss: Stop loss price
             take_profit_levels: Take profit levels
             entry_conditions: Entry conditions
             rationale: Technical reasoning
-            entry_plan_images: Entry plan image URLs
+            images: Image URLs
 
         Returns:
             Updated trading signal dictionary or None on failure
@@ -289,12 +284,11 @@ class BasementClient:
                 "current_price": current_price,
                 "filled_quantity": filled_quantity,
                 "invalid_condition": invalid_condition,
-                "invalid_condition_images": invalid_condition_images,
                 "stop_loss": stop_loss,
                 "take_profit_levels": take_profit_levels,
                 "entry_conditions": entry_conditions,
                 "rationale": rationale,
-                "entry_plan_images": entry_plan_images,
+                "images": images,
             }
             for key, value in fields.items():
                 if value is not None:

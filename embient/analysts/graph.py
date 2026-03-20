@@ -89,6 +89,14 @@ Keep responses concise:
 
 Use markdown formatting. End trading recommendations with:
 > **Disclaimer**: Educational purposes only. Not financial advice. DYOR.
+
+## Error Recovery
+
+When a tool call fails:
+- Do NOT retry the same tool — if it failed once, it will fail again
+- Report the failure clearly to the user
+- Use alternative approaches or available data to continue
+- If a subagent's task fails, summarize what was attempted and what went wrong
 """
 
 # Signal tools for orchestrator (handles signal management directly)

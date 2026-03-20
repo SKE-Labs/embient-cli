@@ -28,15 +28,8 @@ _thread_id_context: ContextVar[str | None] = ContextVar("thread_id", default=Non
 # User profile data (account balance, risk settings, etc.)
 _user_profile_context: ContextVar[dict | None] = ContextVar("user_profile", default=None)
 
-# Entry plan images for trading signals
-_entry_plan_images_context: ContextVar[list | None] = ContextVar(
-    "entry_plan_images", default=None
-)
 
-# Invalid condition images for trading signals
-_invalid_condition_images_context: ContextVar[list | None] = ContextVar(
-    "invalid_condition_images", default=None
-)
+
 
 # Screenshots captured via HITL (e.g., chart screenshots from request_chart_screenshot)
 _screenshots_context: ContextVar[list | None] = ContextVar("screenshots", default=None)
@@ -80,28 +73,6 @@ def get_user_profile() -> dict | None:
     return _user_profile_context.get()
 
 
-# Entry Plan Images
-def set_entry_plan_images(images: list) -> None:
-    """Set the entry plan images for the current session context."""
-    _entry_plan_images_context.set(images)
-
-
-def get_entry_plan_images() -> list | None:
-    """Get the entry plan images from the current session context."""
-    return _entry_plan_images_context.get()
-
-
-# Invalid Condition Images
-def set_invalid_condition_images(images: list) -> None:
-    """Set the invalid condition images for the current session context."""
-    _invalid_condition_images_context.set(images)
-
-
-def get_invalid_condition_images() -> list | None:
-    """Get the invalid condition images from the current session context."""
-    return _invalid_condition_images_context.get()
-
-
 # Screenshots (HITL-captured chart screenshots)
 def set_screenshots(images: list) -> None:
     """Set the screenshots for the current session context.
@@ -123,15 +94,11 @@ __all__ = [
     "set_jwt_token",  # Backwards compatibility
     "set_thread_id",
     "set_user_profile",
-    "set_entry_plan_images",
-    "set_invalid_condition_images",
     "set_screenshots",
     # Getters (for tools/middleware)
     "get_auth_token",
     "get_jwt_token",  # Backwards compatibility
     "get_thread_id",
     "get_user_profile",
-    "get_entry_plan_images",
-    "get_invalid_condition_images",
     "get_screenshots",
 ]
