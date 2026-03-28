@@ -29,13 +29,13 @@ from langgraph.types import Checkpointer
 from embient.trading_tools import (
     calculate_position_size,
     create_memory,
-    create_trading_signal,
+    create_trading_insight,
     delete_memory,
-    get_active_trading_signals,
     get_latest_candle,
+    get_user_trading_insights,
     list_memories,
     update_memory,
-    update_trading_signal,
+    update_trading_insight,
 )
 
 SUPERVISOR_PROMPT = """# Embient AI Trading Analyst
@@ -50,9 +50,9 @@ NEVER:
 
 **Handle directly** (no delegation needed):
 - Quick price checks → `get_latest_candle`
-- Viewing signals → `get_active_trading_signals`
-- Updating signals → `update_trading_signal` (HITL approval)
-- Signal creation → `calculate_position_size` → `create_trading_signal` (HITL approval)
+- Viewing signals → `get_user_trading_insights`
+- Updating signals → `update_trading_insight` (HITL approval)
+- Signal creation → `calculate_position_size` → `create_trading_insight` (HITL approval)
 
 **Delegate to specialists**:
 - **technical_analyst** — Multi-timeframe chart analysis (macro, swing, scalp). Analyzes 1d (macro), 1h (swing), and 15m (scalp) in a single comprehensive analysis.
@@ -61,8 +61,8 @@ NEVER:
 ## Workflow Rules
 
 - **Full analysis** → technical_analyst (all timeframes) → respond
-- **Signal creation** → technical_analyst → `get_latest_candle` → `calculate_position_size` → `create_trading_signal` → respond
-- **Signal update** → `update_trading_signal` directly
+- **Signal creation** → technical_analyst → `get_latest_candle` → `calculate_position_size` → `create_trading_insight` → respond
+- **Signal update** → `update_trading_insight` directly
 - **News/fundamentals** → fundamental_analyst
 
 ## Signal Creation
@@ -70,9 +70,9 @@ NEVER:
 After analyst returns findings:
 1. `get_latest_candle` → suggestion_price
 2. `calculate_position_size` → quantity, leverage, capital_allocated
-3. `create_trading_signal` → uses analysis context (entry, SL, TP, rationale, invalid_condition, confidence)
+3. `create_trading_insight` → uses analysis context (entry, SL, TP, rationale, invalid_condition, confidence)
 
-Use exact price levels from analyst findings. See `create_trading_signal` tool docs for field quality standards.
+Use exact price levels from analyst findings. See `create_trading_insight` tool docs for field quality standards.
 
 **confidence_score** — Use the confidence score from the technical analyst based on timeframe confluence.
 
@@ -102,10 +102,10 @@ When a tool call fails:
 # Signal tools for orchestrator (handles signal management directly)
 _SIGNAL_TOOLS = [
     get_latest_candle,
-    get_active_trading_signals,
+    get_user_trading_insights,
     calculate_position_size,
-    create_trading_signal,
-    update_trading_signal,
+    create_trading_insight,
+    update_trading_insight,
 ]
 
 # Memory tools for orchestrator (manages user memories directly)
@@ -262,10 +262,10 @@ def create_deep_analysts(
             # HITL for signal creation/updates (orchestrator handles these directly)
             HumanInTheLoopMiddleware(
                 interrupt_on={
-                    "create_trading_signal": {
+                    "create_trading_insight": {
                         "allowed_decisions": ["approve", "reject"],
                     },
-                    "update_trading_signal": {
+                    "update_trading_insight": {
                         "allowed_decisions": ["approve", "reject"],
                     },
                 }

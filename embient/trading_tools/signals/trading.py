@@ -8,7 +8,7 @@ from embient.context import get_jwt_token, get_thread_id
 
 
 class GetSignalsSchema(BaseModel):
-    """Arguments for get_active_trading_signals tool."""
+    """Arguments for get_user_trading_insights tool."""
 
     status: str | None = Field(
         default=None,
@@ -21,7 +21,7 @@ class GetSignalsSchema(BaseModel):
 
 
 @tool(args_schema=GetSignalsSchema)
-async def get_active_trading_signals(
+async def get_user_trading_insights(
     status: str | None = None,
     ticker: str | None = None,
 ) -> str:
@@ -33,8 +33,8 @@ async def get_active_trading_signals(
     - Find signals to update or close
 
     When NOT to Use:
-    - Creating new signals → use create_trading_signal
-    - Updating signals → use update_trading_signal
+    - Creating new signals → use create_trading_insight
+    - Updating signals → use update_trading_insight
     - Getting current price → use get_latest_candle
 
     Output fields:
@@ -43,8 +43,8 @@ async def get_active_trading_signals(
     - confidence_score: 0-100 from analyst findings
 
     Tool references:
-    - Use create_trading_signal to create new signals
-    - Use update_trading_signal to modify existing signals
+    - Use create_trading_insight to create new signals
+    - Use update_trading_insight to modify existing signals
 
     IMPORTANT: Requires authentication. Run 'embient login' first.
     """
@@ -90,7 +90,7 @@ async def get_active_trading_signals(
 
 
 class CreateSignalSchema(BaseModel):
-    """Arguments for create_trading_signal tool."""
+    """Arguments for create_trading_insight tool."""
 
     symbol: str = Field(description="Ticker symbol (e.g., 'BTC/USDT')")
     position: str = Field(description="Either 'BUY' or 'SELL'")
@@ -107,7 +107,7 @@ class CreateSignalSchema(BaseModel):
 
 
 @tool(args_schema=CreateSignalSchema)
-async def create_trading_signal(
+async def create_trading_insight(
     symbol: str,
     position: str,
     entry_conditions: str,
@@ -154,7 +154,7 @@ async def create_trading_signal(
     Tool references:
     - Use calculate_position_size before this tool
     - Use get_latest_candle for current price
-    - Use get_active_trading_signals to check for existing signals on same pair
+    - Use get_user_trading_insights to check for existing signals on same pair
 
     IMPORTANT: Requires authentication. Run 'embient login' first.
     """
@@ -211,7 +211,7 @@ async def create_trading_signal(
 
 
 class UpdateSignalSchema(BaseModel):
-    """Arguments for update_trading_signal tool."""
+    """Arguments for update_trading_insight tool."""
 
     signal_id: int = Field(description="The trading signal ID to update")
     status: str | None = Field(
@@ -226,7 +226,7 @@ class UpdateSignalSchema(BaseModel):
 
 
 @tool(args_schema=UpdateSignalSchema)
-async def update_trading_signal(
+async def update_trading_insight(
     signal_id: int,
     status: str | None = None,
     entry_price: float | None = None,
@@ -244,8 +244,8 @@ async def update_trading_signal(
     - Add reflection notes after trade closes
 
     When NOT to Use:
-    - Creating new signals → use create_trading_signal
-    - Checking signal status → use get_active_trading_signals
+    - Creating new signals → use create_trading_insight
+    - Checking signal status → use get_user_trading_insights
     - Position sizing → use calculate_position_size
 
     Status values:
@@ -263,13 +263,13 @@ async def update_trading_signal(
     - reflection: Post-trade notes should cite entry execution vs plan, whether thesis held, and improvements
 
     NEVER:
-    - Update a signal you haven't retrieved with get_active_trading_signals
+    - Update a signal you haven't retrieved with get_user_trading_insights
     - Set status to 'executed' without entry_price
     - Modify signals created by other users
     - Adjust SL to a worse level (applies to ALL update mechanisms)
 
     Tool references:
-    - Use get_active_trading_signals to find signal IDs first
+    - Use get_user_trading_insights to find signal IDs first
 
     IMPORTANT: Requires authentication. Run 'embient login' first.
     """

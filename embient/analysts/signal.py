@@ -8,10 +8,10 @@ from langgraph.runtime import Runtime
 
 from embient.trading_tools import (
     calculate_position_size,
-    create_trading_signal,
-    get_active_trading_signals,
+    create_trading_insight,
     get_latest_candle,
-    update_trading_signal,
+    get_user_trading_insights,
+    update_trading_insight,
 )
 
 SIGNAL_MANAGER_PROMPT = """# Signal Manager
@@ -34,14 +34,14 @@ Your role requires technical analysis context to function.
 **Steps:**
 1. `get_latest_candle` → get current price (use as `suggestion_price`)
 2. `calculate_position_size` → quantity, leverage, capital (NEVER skip)
-3. `create_trading_signal` → create with ALL required parameters
+3. `create_trading_insight` → create with ALL required parameters
 4. Confirm to user
 
 ## Updating a Signal
 
-1. `get_active_trading_signals` → find the signal
+1. `get_user_trading_insights` → find the signal
 2. Verify analysis justifies the update
-3. `update_trading_signal` → apply changes
+3. `update_trading_insight` → apply changes
 
 ## Required Signal Parameters
 
@@ -99,7 +99,7 @@ Some tool calls require approval. If rejected:
 
 
 def _format_create_signal_description(tool_call: ToolCall, _state: AgentState, _runtime: Runtime) -> str:
-    """Format create_trading_signal tool call for HITL approval prompt."""
+    """Format create_trading_insight tool call for HITL approval prompt."""
     args = tool_call.get("args", {})
     symbol = args.get("symbol", "Unknown")
     position = args.get("position", "Unknown")
@@ -132,7 +132,7 @@ Review carefully before approving."""
 
 
 def _format_update_signal_description(tool_call: ToolCall, _state: AgentState, _runtime: Runtime) -> str:
-    """Format update_trading_signal tool call for HITL approval prompt."""
+    """Format update_trading_insight tool call for HITL approval prompt."""
     args = tool_call.get("args", {})
     signal_id = args.get("signal_id", "Unknown")
     status = args.get("status")
@@ -176,19 +176,19 @@ def get_signal_manager(model: BaseChatModel) -> SubAgent:
         ),
         "system_prompt": SIGNAL_MANAGER_PROMPT,
         "tools": [
-            get_active_trading_signals,
+            get_user_trading_insights,
             calculate_position_size,
-            create_trading_signal,
-            update_trading_signal,
+            create_trading_insight,
+            update_trading_insight,
             get_latest_candle,
         ],
         "model": model,
         "interrupt_on": {
-            "create_trading_signal": {
+            "create_trading_insight": {
                 "allowed_decisions": ["approve", "reject"],
                 "description": _format_create_signal_description,
             },
-            "update_trading_signal": {
+            "update_trading_insight": {
                 "allowed_decisions": ["approve", "reject"],
                 "description": _format_update_signal_description,
             },

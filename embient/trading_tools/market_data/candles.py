@@ -35,7 +35,7 @@ async def get_latest_candle(symbol: str, exchange: str = "binance") -> str:
 
     Usage:
     - Use for quick price checks before signal creation
-    - Returns close price as suggestion_price for create_trading_signal
+    - Returns close price as suggestion_price for create_trading_insight
     - Faster than generate_chart when you only need current price
 
     When NOT to Use:

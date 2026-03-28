@@ -23,9 +23,9 @@ from embient.trading_tools.research import (
 )
 from embient.trading_tools.signals import (
     calculate_position_size,
-    create_trading_signal,
-    get_active_trading_signals,
-    update_trading_signal,
+    create_trading_insight,
+    get_user_trading_insights,
+    update_trading_insight,
 )
 
 __all__ = [
@@ -40,9 +40,9 @@ __all__ = [
     "get_fundamentals",
     "get_economics_calendar",
     # Signals
-    "get_active_trading_signals",
-    "create_trading_signal",
-    "update_trading_signal",
+    "get_user_trading_insights",
+    "create_trading_insight",
+    "update_trading_insight",
     "calculate_position_size",
     # Memory
     "list_memories",

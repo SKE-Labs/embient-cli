@@ -130,16 +130,16 @@ async def calculate_position_size(
     """Calculates position sizing (quantity, leverage, capital) based on risk management.
 
     ## When to Use
-    - Call BEFORE create_trading_signal to determine proper sizing
+    - Call BEFORE create_trading_insight to determine proper sizing
     - Uses risk-based approach: position size derived from stop loss distance
     - Ensures consistent risk across all trades regardless of asset
 
     ## When NOT to Use
-    - Analyzing existing positions → use get_active_trading_signals
+    - Analyzing existing positions → use get_user_trading_insights
     - Getting current price → use get_latest_candle
-    - Creating signals → use create_trading_signal (after this tool)
+    - Creating signals → use create_trading_insight (after this tool)
 
-    CRITICAL: create_trading_signal requires output from this tool:
+    CRITICAL: create_trading_insight requires output from this tool:
     - quantity, leverage, capital_allocated are mandatory fields
     - Never manually adjust these values — re-call this tool with different inputs instead
 
@@ -164,7 +164,7 @@ async def calculate_position_size(
 
     Tool references:
     - Use get_latest_candle to get current price for entry_price
-    - Pass ALL three outputs (quantity, leverage, capital_allocated) to create_trading_signal
+    - Pass ALL three outputs (quantity, leverage, capital_allocated) to create_trading_insight
 
     IMPORTANT: Requires authentication. Run 'embient login' first.
     """
@@ -212,7 +212,7 @@ async def calculate_position_size(
         f"- Risk Amount: ${risk_amount:.2f} ({position_size_used}% of balance)\n"
         f"- Available Balance: ${available_balance:.2f}\n"
         f"\n"
-        f"Use these values when calling create_trading_signal:\n"
+        f"Use these values when calling create_trading_insight:\n"
         f"  quantity={quantity}\n"
         f"  leverage={leverage:.2f}\n"
         f"  capital_allocated={capital:.2f}"

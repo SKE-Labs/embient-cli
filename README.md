@@ -67,8 +67,8 @@ graph TD
 | `get_latest_candle`       | Current price and 5m candle data              |
 | `get_indicator`           | Fetch RSI, MACD, EMAs, and other indicators   |
 | `get_candles_around_date` | Retrieve historical candles for back-analysis |
-| `create_trading_signal`   | Propose a new trade (requires HITL approval)  |
-| `update_trading_signal`   | Adjust existing positions or signals          |
+| `create_trading_insight`   | Propose a new trade (requires HITL approval)  |
+| `update_trading_insight`   | Adjust existing positions or signals          |
 | `calculate_position_size` | Risk-based sizing based on account balance    |
 
 ## ⚙️ Configuration

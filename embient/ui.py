@@ -196,7 +196,7 @@ def format_tool_display(tool_name: str, tool_args: dict) -> str:
             return f"{tool_name}({', '.join(parts)})"
         return f"{tool_name}()"
 
-    elif tool_name == "get_active_trading_signals":
+    elif tool_name == "get_user_trading_insights":
         # Trading signals: show status/ticker filter
         parts = []
         if "status" in tool_args:
@@ -207,7 +207,7 @@ def format_tool_display(tool_name: str, tool_args: dict) -> str:
             return f"{tool_name}({', '.join(parts)})"
         return f"{tool_name}()"
 
-    elif tool_name == "create_trading_signal":
+    elif tool_name == "create_trading_insight":
         # Create signal: show symbol and position
         parts = []
         if "symbol" in tool_args:
@@ -217,7 +217,7 @@ def format_tool_display(tool_name: str, tool_args: dict) -> str:
         if parts:
             return f"{tool_name}({' '.join(parts)})"
 
-    elif tool_name == "update_trading_signal":
+    elif tool_name == "update_trading_insight":
         # Update signal: show signal ID and status
         parts = []
         if "signal_id" in tool_args:

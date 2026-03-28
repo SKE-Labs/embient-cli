@@ -95,9 +95,9 @@ Signal creation/update requires user approval via `ApprovalMenu` widget. Use `--
 | `get_financial_news` | Park | Trusted source news |
 | `get_fundamentals` | Park (TwelveData) | Stock fundamentals |
 | `get_economics_calendar` | Basement | Economic events |
-| `get_active_trading_signals` | Basement | List signals |
-| `create_trading_signal` | Basement | Create signal (HITL) |
-| `update_trading_signal` | Basement | Update signal (HITL) |
+| `get_user_trading_insights` | Basement | List signals |
+| `create_trading_insight` | Basement | Create signal (HITL) |
+| `update_trading_insight` | Basement | Update signal (HITL) |
 | `calculate_position_size` | Local | Risk-based sizing |
 | `list_memories` | Basement | List memories |
 | `create_memory` | Basement | Create memory |
