@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import subprocess
 import uuid
 from pathlib import Path
@@ -21,6 +22,7 @@ from embient.auth import load_credentials
 from embient.clipboard import copy_selection_to_clipboard
 from embient.config import get_agent_context_info, settings
 from embient.textual_adapter import TextualUIAdapter, execute_task_textual
+from embient.utils.prompt_loader import load_prompt
 from embient.widgets.approval import ApprovalMenu
 from embient.widgets.chat_input import ChatInput
 from embient.widgets.loading import LoadingWidget
@@ -99,119 +101,7 @@ class TextualSessionState:
         return self.thread_id
 
 
-# Prompt for /remember command - triggers agent to review conversation and update memory/skills
-REMEMBER_PROMPT = """Review our conversation and capture valuable knowledge. Focus especially on **best practices** we discussed or discovered—these are the most important things to preserve.
-
-## Step 1: Identify Best Practices and Key Learnings
-
-Scan the conversation for:
-
-### Best Practices (highest priority)
-- **Patterns that worked well** - approaches, techniques, or solutions we found effective
-- **Anti-patterns to avoid** - mistakes, gotchas, or approaches that caused problems
-- **Quality standards** - criteria we established for good code, documentation, or processes
-- **Decision rationale** - why we chose one approach over another
-
-### Other Valuable Knowledge
-- Coding conventions and style preferences
-- Project architecture decisions
-- Workflows and processes we developed
-- Tools, libraries, or techniques worth remembering
-- Feedback I gave about your behavior or outputs
-
-## Step 2: Decide Where to Store Each Learning
-
-For each best practice or learning, choose the right destination:
-
-### → Memory (AGENTS.md) for preferences and guidelines
-Use memory when the knowledge is:
-- A preference or guideline (not a multi-step process)
-- Something to always keep in mind
-- A simple rule or pattern
-
-**Global** (`~/.embient/agent/AGENTS.md`): Universal preferences across all projects
-**Project** (`.embient/AGENTS.md`): Project-specific conventions and decisions
-
-### → Skill for reusable workflows and methodologies
-**Create a skill when** we developed:
-- A multi-step process worth reusing
-- A methodology for a specific type of task
-- A workflow with best practices baked in
-- A procedure that should be followed consistently
-
-Skills are more powerful than memory entries because they can encode **how** to do something well, not just **what** to remember.
-
-## Step 3: Create Skills for Significant Best Practices
-
-If we established best practices around a workflow or process, capture them in a skill.
-
-**Example:** If we discussed best practices for code review, create a `code-review` skill that encodes those practices into a reusable workflow.
-
-### Skill Location
-`~/.embient/agent/skills/<skill-name>/SKILL.md`
-
-### Skill Structure
-```
-skill-name/
-├── SKILL.md          (required - main instructions with best practices)
-├── scripts/          (optional - executable code)
-├── references/       (optional - detailed documentation)
-└── assets/           (optional - templates, examples)
-```
-
-### SKILL.md Format
-```markdown
----
-name: skill-name
-description: "What this skill does AND when to use it. Include triggers like 'when the user asks to X' or 'when working with Y'. This description determines when the skill activates."
----
-
-# Skill Name
-
-## Overview
-Brief explanation of what this skill accomplishes.
-
-## Best Practices
-Capture the key best practices upfront:
-- Best practice 1: explanation
-- Best practice 2: explanation
-
-## Process
-Step-by-step instructions (imperative form):
-1. First, do X
-2. Then, do Y
-3. Finally, do Z
-
-## Common Pitfalls
-- Pitfall to avoid and why
-- Another anti-pattern we discovered
-```
-
-### Key Principles
-1. **Encode best practices prominently** - Put them near the top so they guide the entire workflow
-2. **Concise is key** - Only include non-obvious knowledge. Every paragraph should justify its token cost.
-3. **Clear triggers** - The description determines when the skill activates. Be specific.
-4. **Imperative form** - Write as commands: "Create a file" not "You should create a file"
-5. **Include anti-patterns** - What NOT to do is often as valuable as what to do
-
-## Step 4: Update Memory for Simpler Learnings
-
-For preferences, guidelines, and simple rules that don't warrant a full skill:
-
-```markdown
-## Best Practices
-- When doing X, always Y because Z
-- Avoid A because it leads to B
-```
-
-Use `edit_file` to update existing files or `write_file` to create new ones.
-
-## Step 5: Summarize Changes
-
-List what you captured and where you stored it:
-- Skills created (with key best practices encoded)
-- Memory entries added (with location)
-"""
+REMEMBER_PROMPT = load_prompt("commands/remember.md")
 
 
 class EmbientApp(App):
@@ -375,6 +265,9 @@ class EmbientApp(App):
         # Size the spacer to fill remaining viewport below input
         self.call_after_refresh(self._size_initial_spacer)
 
+        # Start spawn manager (background task scheduler)
+        self._start_spawn_manager()
+
         # Load thread history if resuming a session
         if self._lc_thread_id and self._agent:
             self.call_after_refresh(lambda: asyncio.create_task(self._load_thread_history()))
@@ -382,6 +275,42 @@ class EmbientApp(App):
         elif self._initial_prompt and self._initial_prompt.strip():
             # Use call_after_refresh to ensure UI is fully mounted before submitting
             self.call_after_refresh(lambda: asyncio.create_task(self._handle_user_message(self._initial_prompt)))
+
+    def _start_spawn_manager(self) -> None:
+        """Initialize and start the spawn manager in the background."""
+        from embient.context import set_spawn_manager
+
+        async def _init_spawn_manager():
+            try:
+                from embient.spawns.manager import SpawnManager
+
+                self._spawn_manager = SpawnManager(on_result=self._on_spawn_result)
+                await self._spawn_manager.start()
+                set_spawn_manager(self._spawn_manager)
+            except Exception:
+                logging.getLogger(__name__).debug("Failed to start spawn manager", exc_info=True)
+
+        self._spawn_manager_task = asyncio.create_task(_init_spawn_manager())
+
+    def _on_spawn_result(self, spawn, run) -> None:
+        """Called by executor when a spawn run completes."""
+        status = run.status.upper()
+        preview = ""
+        if run.result:
+            preview = run.result[:150].replace("\n", " ")
+        elif run.error:
+            preview = run.error[:150]
+
+        msg = f"[Spawn '{spawn.name}'] {status}"
+        if preview:
+            msg += f": {preview}"
+
+        # Schedule mount on the event loop (called from background task)
+        try:
+            loop = asyncio.get_running_loop()
+            loop.call_soon_threadsafe(lambda: asyncio.create_task(self._mount_message(SystemMessage(msg))))
+        except RuntimeError:
+            pass
 
     def _update_status(self, message: str) -> None:
         """Update the status bar with a message."""
@@ -605,7 +534,9 @@ class EmbientApp(App):
             self.exit()
         elif cmd == "/help":
             await self._mount_message(UserMessage(command))
-            await self._mount_message(SystemMessage("Commands: /quit, /clear, /remember, /tokens, /threads, /model, /help"))
+            await self._mount_message(
+                SystemMessage("Commands: /quit, /clear, /remember, /tokens, /threads, /model, /spawns, /help")
+            )
 
         elif cmd == "/version":
             await self._mount_message(UserMessage(command))
@@ -638,9 +569,7 @@ class EmbientApp(App):
                     self.run_worker(self._switch_thread(thread_id))
                 elif thread_id == current_thread:
                     self.call_after_refresh(
-                        lambda: self.run_worker(
-                            self._mount_message(SystemMessage(f"Already on thread {thread_id}"))
-                        )
+                        lambda: self.run_worker(self._mount_message(SystemMessage(f"Already on thread {thread_id}")))
                     )
 
             self.push_screen(
@@ -651,20 +580,30 @@ class EmbientApp(App):
             await self._mount_message(UserMessage(command))
 
             from embient.config import settings
+            from embient.model_config import has_provider_credentials
+            from embient.widgets.api_key_input import ApiKeyInputScreen
             from embient.widgets.model_selector import ModelSelectorScreen
 
             def on_model_selected(result: tuple[str, str] | None) -> None:
                 if result is None:
                     return
                 model_spec, provider = result
-                # model_spec is "provider:model" — extract just the model name
                 if ":" in model_spec:
                     _, model_name = model_spec.split(":", 1)
                 else:
                     model_name = model_spec
 
-                # Recreate agent with new model
-                self.run_worker(self._switch_model(model_name))
+                if has_provider_credentials(provider) is False:
+                    # Provider needs an API key — prompt the user
+                    def on_key_entered(key: str | None) -> None:
+                        if key is None:
+                            self.run_worker(self._mount_message(SystemMessage("Model switch cancelled.")))
+                            return
+                        self.run_worker(self._switch_model(model_name))
+
+                    self.push_screen(ApiKeyInputScreen(provider), callback=on_key_entered)
+                else:
+                    self.run_worker(self._switch_model(model_name))
 
             self.push_screen(
                 ModelSelectorScreen(
@@ -699,6 +638,25 @@ class EmbientApp(App):
             # Send as a user message to the agent
             await self._handle_user_message(final_prompt)
             return  # _handle_user_message already mounts the message
+        elif cmd == "/spawns":
+            await self._mount_message(UserMessage(command))
+            from embient.context import get_spawn_manager
+
+            manager = get_spawn_manager()
+            if manager is None:
+                await self._mount_message(SystemMessage("Spawn system not running."))
+            else:
+                spawns = await manager.list_spawns()
+                if not spawns:
+                    await self._mount_message(SystemMessage("No spawns. Ask the agent to create one."))
+                else:
+                    lines = [f"Spawns ({len(spawns)}):"]
+                    for s in spawns:
+                        lines.append(
+                            f"  {s.id} | {s.name} | {s.status} | {s.schedule_display} | "
+                            f"runs: {s.run_count}/{s.max_runs} | next: {s.next_run_at or 'N/A'}"
+                        )
+                    await self._mount_message(SystemMessage("\n".join(lines)))
         else:
             await self._mount_message(UserMessage(command))
             await self._mount_message(SystemMessage(f"Unknown command: {cmd}"))
@@ -941,9 +899,7 @@ class EmbientApp(App):
             self._agent = agent
             self._backend = backend
             provider = settings.model_provider or "unknown"
-            await self._mount_message(
-                SystemMessage(f"Switched to {provider}:{model_name} (thread: {new_thread_id})")
-            )
+            await self._mount_message(SystemMessage(f"Switched to {provider}:{model_name} (thread: {new_thread_id})"))
         except Exception as e:
             await self._mount_message(ErrorMessage(f"Failed to recreate agent: {e}"))
 
@@ -991,6 +947,20 @@ class EmbientApp(App):
 
     def action_quit_app(self) -> None:
         """Handle quit action (Ctrl+D)."""
+        # Stop spawn manager gracefully
+        if hasattr(self, "_spawn_manager") and self._spawn_manager:
+
+            async def _stop():
+                try:
+                    await self._spawn_manager.stop()
+                except Exception:
+                    pass
+
+            try:
+                loop = asyncio.get_running_loop()
+                self._spawn_stop_task = loop.create_task(_stop())
+            except RuntimeError:
+                pass
         self.exit()
 
     def action_toggle_auto_approve(self) -> None:

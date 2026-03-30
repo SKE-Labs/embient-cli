@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, ClassVar
 from textual.binding import Binding, BindingType
 from textual.containers import Container, Vertical, VerticalScroll
 from textual.events import (
-    Click,  # noqa: TC002 - needed at runtime for Textual event dispatch
+    Click,
 )
 from textual.message import Message
 from textual.screen import ModalScreen
@@ -253,9 +253,7 @@ class ModelSelectorScreen(ModalScreen[tuple[str, str] | None]):
         self._option_widgets = []
 
         if not self._filtered_models:
-            await self._options_container.mount(
-                Static("[dim]No matching models[/dim]")
-            )
+            await self._options_container.mount(Static("[dim]No matching models[/dim]"))
             return
 
         # Group by provider

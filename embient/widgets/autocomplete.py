@@ -83,6 +83,8 @@ SLASH_COMMANDS: list[tuple[str, str]] = [
     ("/exit", "Exit app"),
     ("/tokens", "Token usage"),
     ("/threads", "Show session info"),
+    ("/model", "Switch LLM model"),
+    ("/spawns", "List local agent spawns"),
     ("/version", "Show version"),
 ]
 """Built-in slash commands with descriptions."""

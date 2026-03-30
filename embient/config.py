@@ -13,6 +13,8 @@ from rich.console import Console
 from embient._version import __version__
 
 dotenv.load_dotenv()
+# Also load user-global keys from ~/.embient/.env (does not override project .env values)
+dotenv.load_dotenv(Path.home() / ".embient" / ".env")
 
 # CRITICAL: Override LANGSMITH_PROJECT to route agent traces to separate project
 # LangSmith reads LANGSMITH_PROJECT at invocation time, so we override it here

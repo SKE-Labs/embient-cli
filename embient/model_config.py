@@ -6,23 +6,34 @@ import os
 from collections import OrderedDict
 
 # Default models per provider
-_MODELS_BY_PROVIDER: dict[str, list[str]] = OrderedDict([
-    ("openai", [
-        "gpt-5-mini",
-        "gpt-5.2",
-        "gpt-4.1-mini",
-        "o4-mini",
-    ]),
-    ("anthropic", [
-        "claude-sonnet-4-5-20250929",
-        "claude-opus-4-6",
-        "claude-haiku-4-5-20251001",
-    ]),
-    ("google", [
-        "gemini-3-flash-preview",
-        "gemini-2.5-pro-preview-05-06",
-    ]),
-])
+_MODELS_BY_PROVIDER: dict[str, list[str]] = OrderedDict(
+    [
+        (
+            "openai",
+            [
+                "gpt-5-mini",
+                "gpt-5.2",
+                "gpt-4.1-mini",
+                "o4-mini",
+            ],
+        ),
+        (
+            "anthropic",
+            [
+                "claude-sonnet-4-5-20250929",
+                "claude-opus-4-6",
+                "claude-haiku-4-5-20251001",
+            ],
+        ),
+        (
+            "google",
+            [
+                "gemini-3-flash-preview",
+                "gemini-2.5-pro-preview-05-06",
+            ],
+        ),
+    ]
+)
 
 _PROVIDER_ENV_VARS: dict[str, str] = {
     "openai": "OPENAI_API_KEY",
