@@ -1,7 +1,7 @@
 [project]
 name = "embient"
-version = "0.1.10"
-description = "Embient CLI - AI-powered trading assistant"
+version = "0.1.11"
+description = "Embient CLI - AI Trading Team"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11,<4.0"
@@ -30,6 +30,7 @@ dependencies = [
     "plotly>=6.0.0",
     "pandas>=2.0.0",
     "kaleido>=0.4.0",
+    "croniter>=1.3.0",
 ]
 
 [project.scripts]
@@ -62,7 +63,7 @@ build-backend = "setuptools.build_meta"
 include = ["embient*"]
 
 [tool.setuptools.package-data]
-embient = ["default_agent_prompt.md", "*.tcss", "py.typed"]
+embient = ["default_agent_prompt.md", "prompts/**/*.md", "*.tcss", "py.typed"]
 
 [tool.ruff]
 line-length = 120
@@ -87,6 +88,8 @@ ignore = [
     "S101",   # assert (fine for invariants)
     "S110",   # try-except-pass (sometimes intentional)
     "S112",   # try-except-continue
+    "S608",   # SQL injection via string concat (false positive — internal keys only)
+    "B904",   # raise from in except (ToolException re-raise pattern is intentional)
     "RUF022", # __all__ not sorted
 ]
 unfixable = ["B028"] # Rules that shouldn't be auto-fixed
