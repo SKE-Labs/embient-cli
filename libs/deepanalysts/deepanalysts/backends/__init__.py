@@ -28,6 +28,7 @@ from deepanalysts.backends.store import (
     StoreBackend,
     _validate_namespace,
 )
+from deepanalysts.backends.supabase_storage import SupabaseStorageBackend
 
 __all__ = [
     # Protocols and types
@@ -60,6 +61,7 @@ __all__ = [
     "RestrictedSubprocessBackend",
     "StateBackend",
     "StoreBackend",
+    "SupabaseStorageBackend",
 ]
 
 # Optional imports that require additional dependencies (Basement API loaders)

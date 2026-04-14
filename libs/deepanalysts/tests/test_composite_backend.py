@@ -7,7 +7,13 @@ import asyncio
 from unittest.mock import MagicMock
 
 import pytest
-from deepanalysts.backends.composite import CompositeBackend
+from deepanalysts.backends.composite import (
+    CompositeBackend,
+    _remap_file_info_path,
+    _remap_grep_path,
+    _route_for_path,
+    _strip_route_from_pattern,
+)
 from deepanalysts.backends.sandbox import RestrictedSubprocessBackend
 from deepanalysts.backends.store import StoreBackend
 from langgraph.store.memory import InMemoryStore
@@ -371,3 +377,94 @@ class TestCompositeBackendAsync:
             assert responses[0].content == b"test data"
 
         asyncio.run(run_test())
+
+
+# ---------------------------------------------------------------------------
+# Smart path routing (_route_for_path)
+# ---------------------------------------------------------------------------
+
+
+class TestRouteForPath:
+    """Tests for _route_for_path edge cases ported from deepagents."""
+
+    def _make_routes(self):
+        default = make_store_backend()
+        memories = make_store_backend()
+        skills = make_store_backend()
+        sorted_routes = [
+            ("/memories/", memories),
+            ("/skills/", skills),
+        ]
+        return default, sorted_routes, memories, skills
+
+    def test_exact_route_root_without_slash(self):
+        """'/memories' (no trailing slash) should route to memories with backend_path '/'."""
+        default, sorted_routes, memories, _skills = self._make_routes()
+        backend, path, prefix = _route_for_path(default=default, sorted_routes=sorted_routes, path="/memories")
+        assert backend is memories
+        assert path == "/"
+        assert prefix == "/memories/"
+
+    def test_route_with_subpath(self):
+        """/memories/notes.txt routes correctly and strips prefix."""
+        default, sorted_routes, memories, _skills = self._make_routes()
+        backend, path, prefix = _route_for_path(
+            default=default, sorted_routes=sorted_routes, path="/memories/notes.txt"
+        )
+        assert backend is memories
+        assert path == "/notes.txt"
+        assert prefix == "/memories/"
+
+    def test_route_prefix_boundary(self):
+        """/memoriesX should NOT match /memories/ — boundary enforcement."""
+        default, sorted_routes, _memories, _skills = self._make_routes()
+        backend, path, prefix = _route_for_path(default=default, sorted_routes=sorted_routes, path="/memoriesX")
+        assert backend is default
+        assert path == "/memoriesX"
+        assert prefix is None
+
+    def test_default_for_unmatched(self):
+        """Unmatched path goes to default."""
+        default, sorted_routes, _memories, _skills = self._make_routes()
+        backend, path, prefix = _route_for_path(default=default, sorted_routes=sorted_routes, path="/other/file.txt")
+        assert backend is default
+        assert path == "/other/file.txt"
+        assert prefix is None
+
+    def test_root_path(self):
+        """'/' goes to default."""
+        default, sorted_routes, _memories, _skills = self._make_routes()
+        backend, path, prefix = _route_for_path(default=default, sorted_routes=sorted_routes, path="/")
+        assert backend is default
+        assert path == "/"
+        assert prefix is None
+
+
+# ---------------------------------------------------------------------------
+# Path helper functions
+# ---------------------------------------------------------------------------
+
+
+class TestPathHelpers:
+    def test_remap_file_info_path(self):
+        fi = {"path": "/note.md", "is_dir": False, "size": 10, "modified_at": ""}
+        remapped = _remap_file_info_path(fi, "/memories/")
+        assert remapped["path"] == "/memories/note.md"
+
+    def test_remap_grep_path(self):
+        m = {"path": "/note.md", "line": 1, "text": "hello"}
+        remapped = _remap_grep_path(m, "/memories/")
+        assert remapped["path"] == "/memories/note.md"
+        assert remapped["line"] == 1
+
+    def test_strip_route_from_pattern_matching(self):
+        result = _strip_route_from_pattern("/memories/**/*.md", "/memories/")
+        assert result == "**/*.md"
+
+    def test_strip_route_from_pattern_no_match(self):
+        result = _strip_route_from_pattern("**/*.md", "/memories/")
+        assert result == "**/*.md"
+
+    def test_strip_route_leading_slash_agnostic(self):
+        result = _strip_route_from_pattern("memories/**/*.md", "/memories/")
+        assert result == "**/*.md"

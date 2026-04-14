@@ -3,6 +3,7 @@
 Uses user_id for multi-tenant isolation instead of assistant_id.
 """
 
+import base64
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -21,6 +22,7 @@ from deepanalysts.backends.protocol import (
     WriteResult,
 )
 from deepanalysts.backends.utils import (
+    _get_file_type,
     _glob_search_files,
     create_file_data,
     file_data_to_string,
@@ -194,44 +196,57 @@ class StoreBackend(BackendProtocol):
     def _convert_store_item_to_file_data(self, store_item: Item) -> dict[str, Any]:
         """Convert a store Item to FileData format.
 
+        Supports both v1 (content as list[str]) and v2 (content as str with
+        encoding field) formats for backwards compatibility.
+
         Args:
             store_item: The store Item containing file data.
 
         Returns:
-            FileData dict with content, created_at, and modified_at fields.
+            FileData dict with content, created_at, modified_at, and optionally encoding.
 
         Raises:
             ValueError: If required fields are missing or have incorrect types.
         """
-        if "content" not in store_item.value or not isinstance(store_item.value["content"], list):
+        raw_content = store_item.value.get("content")
+        if raw_content is None:
             msg = f"Store item does not contain valid content field. Got: {store_item.value.keys()}"
             raise ValueError(msg)
-        if "created_at" not in store_item.value or not isinstance(store_item.value["created_at"], str):
-            msg = f"Store item does not contain valid created_at field. Got: {store_item.value.keys()}"
-            raise ValueError(msg)
-        if "modified_at" not in store_item.value or not isinstance(store_item.value["modified_at"], str):
-            msg = f"Store item does not contain valid modified_at field. Got: {store_item.value.keys()}"
-            raise ValueError(msg)
-        return {
-            "content": store_item.value["content"],
-            "created_at": store_item.value["created_at"],
-            "modified_at": store_item.value["modified_at"],
-        }
+
+        # v2 format: content is str with encoding field
+        if isinstance(raw_content, str):
+            result: dict[str, Any] = {
+                "content": raw_content,
+                "encoding": store_item.value.get("encoding", "utf-8"),
+                "created_at": store_item.value.get("created_at", ""),
+                "modified_at": store_item.value.get("modified_at", ""),
+            }
+            return result
+
+        # v1 format: content is list[str]
+        if isinstance(raw_content, list):
+            return {
+                "content": raw_content,
+                "created_at": store_item.value.get("created_at", ""),
+                "modified_at": store_item.value.get("modified_at", ""),
+            }
+
+        msg = f"Store item content must be str or list[str], got {type(raw_content).__name__}"
+        raise ValueError(msg)
 
     def _convert_file_data_to_store_value(self, file_data: dict[str, Any]) -> dict[str, Any]:
         """Convert FileData to a dict suitable for store.put().
 
-        Args:
-            file_data: The FileData to convert.
-
-        Returns:
-            Dictionary with content, created_at, and modified_at fields.
+        Preserves encoding field when present (v2 format for binary files).
         """
-        return {
+        result: dict[str, Any] = {
             "content": file_data["content"],
             "created_at": file_data["created_at"],
             "modified_at": file_data["modified_at"],
         }
+        if "encoding" in file_data:
+            result["encoding"] = file_data["encoding"]
+        return result
 
     def _search_store_paginated(
         self,
@@ -322,12 +337,11 @@ class StoreBackend(BackendProtocol):
                 fd = self._convert_store_item_to_file_data(item)
             except ValueError:
                 continue
-            size = len("\n".join(fd.get("content", [])))
             infos.append(
                 {
                     "path": item.key,
                     "is_dir": False,
-                    "size": int(size),
+                    "size": self._file_size(fd),
                     "modified_at": fd.get("modified_at", ""),
                 }
             )
@@ -524,6 +538,23 @@ class StoreBackend(BackendProtocol):
         await store.aput(namespace, file_path, store_value)
         return EditResult(path=file_path, files_update=None, occurrences=int(occurrences))
 
+    def _items_to_files(self, items: list[Item]) -> dict[str, Any]:
+        """Convert store items to a files dict for grep/glob utilities."""
+        files: dict[str, Any] = {}
+        for item in items:
+            try:
+                files[item.key] = self._convert_store_item_to_file_data(item)
+            except ValueError:
+                continue
+        return files
+
+    def _file_size(self, fd: dict[str, Any]) -> int:
+        """Compute approximate byte size of a file data dict."""
+        raw = fd.get("content", "")
+        if isinstance(raw, list):
+            return len("\n".join(raw))
+        return len(raw)
+
     def grep_raw(
         self,
         pattern: str,
@@ -533,116 +564,205 @@ class StoreBackend(BackendProtocol):
         store = self._get_store()
         namespace = self._get_namespace()
         items = self._search_store_paginated(store, namespace)
-        files: dict[str, Any] = {}
-        for item in items:
-            try:
-                files[item.key] = self._convert_store_item_to_file_data(item)
-            except ValueError:
-                continue
-        return grep_matches_from_files(files, pattern, path, glob)
+        return grep_matches_from_files(self._items_to_files(items), pattern, path, glob)
+
+    async def agrep_raw(
+        self,
+        pattern: str,
+        path: str | None = None,
+        glob: str | None = None,
+    ) -> list[GrepMatch] | str:
+        """Async grep using native store.asearch."""
+        store = self._get_store()
+        namespace = self._get_namespace()
+        items = await self._async_search_store_paginated(store, namespace)
+        return grep_matches_from_files(self._items_to_files(items), pattern, path, glob)
 
     def glob_info(self, pattern: str, path: str = "/") -> list[FileInfo]:
         store = self._get_store()
         namespace = self._get_namespace()
         items = self._search_store_paginated(store, namespace)
-        files: dict[str, Any] = {}
-        for item in items:
-            try:
-                files[item.key] = self._convert_store_item_to_file_data(item)
-            except ValueError:
-                continue
+        files = self._items_to_files(items)
         result = _glob_search_files(files, pattern, path)
         if result == "No files found":
             return []
-        paths = result.split("\n")
+        return [
+            {
+                "path": p,
+                "is_dir": False,
+                "size": self._file_size(files[p]) if p in files else 0,
+                "modified_at": files[p].get("modified_at", "") if p in files else "",
+            }
+            for p in result.split("\n")
+        ]
+
+    async def aglob_info(self, pattern: str, path: str = "/") -> list[FileInfo]:
+        """Async glob using native store.asearch."""
+        store = self._get_store()
+        namespace = self._get_namespace()
+        items = await self._async_search_store_paginated(store, namespace)
+        files = self._items_to_files(items)
+        result = _glob_search_files(files, pattern, path)
+        if result == "No files found":
+            return []
+        return [
+            {
+                "path": p,
+                "is_dir": False,
+                "size": self._file_size(files[p]) if p in files else 0,
+                "modified_at": files[p].get("modified_at", "") if p in files else "",
+            }
+            for p in result.split("\n")
+        ]
+
+    async def als_info(self, path: str) -> list[FileInfo]:
+        """Async ls using native store.asearch."""
+        store = self._get_store()
+        namespace = self._get_namespace()
+        items = await self._async_search_store_paginated(store, namespace)
         infos: list[FileInfo] = []
-        for p in paths:
-            fd = files.get(p)
-            size = len("\n".join(fd.get("content", []))) if fd else 0
+        subdirs: set[str] = set()
+        normalized_path = path if path.endswith("/") else path + "/"
+
+        for item in items:
+            if not str(item.key).startswith(normalized_path):
+                continue
+            relative = str(item.key)[len(normalized_path) :]
+            if "/" in relative:
+                subdir_name = relative.split("/")[0]
+                subdirs.add(normalized_path + subdir_name + "/")
+                continue
+            try:
+                fd = self._convert_store_item_to_file_data(item)
+            except ValueError:
+                continue
             infos.append(
                 {
-                    "path": p,
+                    "path": item.key,
                     "is_dir": False,
-                    "size": int(size),
-                    "modified_at": fd.get("modified_at", "") if fd else "",
+                    "size": self._file_size(fd),
+                    "modified_at": fd.get("modified_at", ""),
                 }
             )
+
+        for subdir in sorted(subdirs):
+            infos.append({"path": subdir, "is_dir": True, "size": 0, "modified_at": ""})
+
+        infos.sort(key=lambda x: x.get("path", ""))
         return infos
+
+    async def _async_search_store_paginated(
+        self,
+        store: BaseStore,
+        namespace: tuple[str, ...],
+        *,
+        page_size: int = 100,
+    ) -> list[Item]:
+        """Async paginated search using native store.asearch."""
+        all_items: list[Item] = []
+        offset = 0
+        while True:
+            page_items = await store.asearch(
+                namespace,
+                limit=page_size,
+                offset=offset,
+            )
+            if not page_items:
+                break
+            all_items.extend(page_items)
+            if len(page_items) < page_size:
+                break
+            offset += page_size
+        return all_items
 
     def upload_files(self, files: list[tuple[str, bytes]]) -> list[FileUploadResponse]:
         """Upload multiple files to the store.
 
-        Args:
-            files: List of (path, content) tuples where content is bytes.
-
-        Returns:
-            List of FileUploadResponse objects, one per input file.
-            Response order matches input order.
+        Binary files (images, PDFs, etc.) are stored as base64-encoded strings.
+        Text files are stored as utf-8 strings.
         """
         store = self._get_store()
         namespace = self._get_namespace()
         responses: list[FileUploadResponse] = []
 
         for path, content in files:
-            content_str = content.decode("utf-8")
-            # Create file data
-            file_data = create_file_data(content_str)
-            store_value = self._convert_file_data_to_store_value(file_data)
+            try:
+                content_str = content.decode("utf-8")
+                encoding = "utf-8"
+            except UnicodeDecodeError:
+                content_str = base64.standard_b64encode(content).decode("ascii")
+                encoding = "base64"
 
-            # Store the file
+            fmt = "v2" if encoding == "base64" else "v1"
+            file_data = create_file_data(content_str, encoding=encoding, file_format=fmt)
+            store_value = self._convert_file_data_to_store_value(file_data)
             store.put(namespace, path, store_value)
             responses.append(FileUploadResponse(path=path, error=None))
 
         return responses
 
+    async def aupload_files(self, files: list[tuple[str, bytes]]) -> list[FileUploadResponse]:
+        """Async upload using native store.aput. Handles binary via base64."""
+        store = self._get_store()
+        namespace = self._get_namespace()
+        responses: list[FileUploadResponse] = []
+
+        for path, content in files:
+            try:
+                content_str = content.decode("utf-8")
+                encoding = "utf-8"
+            except UnicodeDecodeError:
+                content_str = base64.standard_b64encode(content).decode("ascii")
+                encoding = "base64"
+
+            fmt = "v2" if encoding == "base64" else "v1"
+            file_data = create_file_data(content_str, encoding=encoding, file_format=fmt)
+            store_value = self._convert_file_data_to_store_value(file_data)
+            await store.aput(namespace, path, store_value)
+            responses.append(FileUploadResponse(path=path, error=None))
+
+        return responses
+
     def download_files(self, paths: list[str]) -> list[FileDownloadResponse]:
-        """Download multiple files from the store.
-
-        Args:
-            paths: List of file paths to download.
-
-        Returns:
-            List of FileDownloadResponse objects, one per input path.
-            Response order matches input order.
-        """
+        """Download multiple files. Decodes base64 for binary files."""
         store = self._get_store()
         namespace = self._get_namespace()
         responses: list[FileDownloadResponse] = []
 
         for path in paths:
             item = store.get(namespace, path)
-
             if item is None:
                 responses.append(FileDownloadResponse(path=path, content=None, error="file_not_found"))
                 continue
 
             file_data = self._convert_store_item_to_file_data(item)
-            # Convert file data to bytes
             content_str = file_data_to_string(file_data)
-            content_bytes = content_str.encode("utf-8")
-
+            encoding = file_data.get("encoding", "utf-8")
+            content_bytes = (
+                base64.standard_b64decode(content_str) if encoding == "base64" else content_str.encode("utf-8")
+            )
             responses.append(FileDownloadResponse(path=path, content=content_bytes, error=None))
 
         return responses
 
     async def adownload_files(self, paths: list[str]) -> list[FileDownloadResponse]:
-        """Async version of download_files using native store async methods."""
+        """Async download using native store.aget. Decodes base64 for binary files."""
         store = self._get_store()
         namespace = self._get_namespace()
         responses: list[FileDownloadResponse] = []
 
         for path in paths:
             item = await store.aget(namespace, path)
-
             if item is None:
                 responses.append(FileDownloadResponse(path=path, content=None, error="file_not_found"))
                 continue
 
             file_data = self._convert_store_item_to_file_data(item)
-            # Convert file data to bytes
             content_str = file_data_to_string(file_data)
-            content_bytes = content_str.encode("utf-8")
-
+            encoding = file_data.get("encoding", "utf-8")
+            content_bytes = (
+                base64.standard_b64decode(content_str) if encoding == "base64" else content_str.encode("utf-8")
+            )
             responses.append(FileDownloadResponse(path=path, content=content_bytes, error=None))
 
         return responses
