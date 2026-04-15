@@ -84,7 +84,7 @@ The CLI must be running for spawns to execute. When closed, spawns pause until n
 | `get_latest_candle` | Current price and 5m candle data |
 | `get_indicator` | RSI, MACD, EMA, SMA, Bollinger Bands, and more |
 | `get_candles_around_date` | Historical candles for back-analysis |
-| `generate_chart` | Rendered chart image via Vermeer |
+| `analyze_chart` | Rendered chart image via Vermeer |
 
 ### Research
 | Tool | Description |

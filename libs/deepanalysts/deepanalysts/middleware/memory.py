@@ -50,7 +50,7 @@ from typing import TYPE_CHECKING, Annotated, NotRequired, Protocol, TypedDict
 
 from langchain_core.runnables import RunnableConfig
 
-from deepanalysts.middleware._utils import append_to_system_message
+from deepanalysts.middleware._utils import append_to_system_message, insert_after_section
 
 if TYPE_CHECKING:
     from deepanalysts.backends.protocol import (
@@ -134,6 +134,7 @@ class MemoryMiddleware(AgentMiddleware):
         backend: BACKEND_TYPES | None = None,
         sources: list[str] | None = None,
         loader: MemoryLoaderProtocol | None = None,
+        insert_after: str | None = None,
     ) -> None:
         """Initialize the memory middleware.
 
@@ -146,10 +147,15 @@ class MemoryMiddleware(AgentMiddleware):
                      from the paths. Sources are loaded in order. Optional if using loader.
             loader: Optional loader for API-based memory loading.
                     When provided, takes precedence over backend/sources.
+            insert_after: If set, insert the memory section after this named prompt
+                         section instead of appending at the end.  Section names are
+                         tracked via ``additional_kwargs["_prompt_sections"]`` on the
+                         ``SystemMessage``.  Falls back to append if not found.
         """
         self._backend = backend
         self.sources = sources or []
         self.loader = loader
+        self.insert_after = insert_after
         self.system_prompt_template = MEMORY_SYSTEM_PROMPT
 
     def _get_backend(self, state: MemoryState, runtime: Runtime, config: RunnableConfig) -> BackendProtocol:
@@ -358,6 +364,9 @@ class MemoryMiddleware(AgentMiddleware):
         instead of just string concatenation. Skips injection entirely
         when no memory content is loaded.
 
+        When ``insert_after`` is set, the memory section is inserted after
+        the named prompt section rather than appended at the end.
+
         Args:
             request: Model request to modify.
 
@@ -376,7 +385,12 @@ class MemoryMiddleware(AgentMiddleware):
             memory_contents=memory_contents,
         )
 
-        system_message = append_to_system_message(request.system_message, memory_section)
+        if self.insert_after:
+            system_message = insert_after_section(
+                request.system_message, memory_section, self.insert_after
+            )
+        else:
+            system_message = append_to_system_message(request.system_message, memory_section)
         return request.override(system_message=system_message)
 
     def wrap_model_call(

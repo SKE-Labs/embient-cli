@@ -71,7 +71,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.prebuilt import ToolRuntime
 from langgraph.runtime import Runtime
 
-from deepanalysts.middleware._utils import append_to_system_message
+from deepanalysts.middleware._utils import append_to_system_message, insert_after_section
 
 logger = logging.getLogger(__name__)
 
@@ -450,6 +450,7 @@ class SkillsMiddleware(AgentMiddleware):
         sources: list[str] | None = None,
         loader: SkillsLoaderProtocol | None = None,
         agent_name: str = "orchestrator",
+        insert_after: str | None = None,
     ) -> None:
         """Initialize the skills middleware.
 
@@ -462,11 +463,15 @@ class SkillsMiddleware(AgentMiddleware):
             loader: Optional loader for API-based skill loading.
                     When provided, takes precedence over backend/sources.
             agent_name: Agent name for filtering skills by target_agents (default: "orchestrator").
+            insert_after: If set, insert the skills section after this named prompt
+                         section instead of appending at the end.  Falls back to
+                         append if the section is not found.
         """
         self._backend = backend
         self.sources = sources or []
         self.loader = loader
         self.agent_name = agent_name
+        self.insert_after = insert_after
         self.system_prompt_template = SKILLS_SYSTEM_PROMPT
 
     def _get_backend(self, state: SkillsState, runtime: Runtime, config: RunnableConfig) -> BackendProtocol:
@@ -528,6 +533,9 @@ class SkillsMiddleware(AgentMiddleware):
         instead of just string concatenation. Skips injection entirely
         when no skills are available.
 
+        When ``insert_after`` is set, the skills section is inserted after
+        the named prompt section rather than appended at the end.
+
         Args:
             request: Model request to modify
 
@@ -546,7 +554,12 @@ class SkillsMiddleware(AgentMiddleware):
             skills_list=skills_list,
         )
 
-        system_message = append_to_system_message(request.system_message, skills_section)
+        if self.insert_after:
+            system_message = insert_after_section(
+                request.system_message, skills_section, self.insert_after
+            )
+        else:
+            system_message = append_to_system_message(request.system_message, skills_section)
         return request.override(system_message=system_message)
 
     def before_agent(self, state: SkillsState, runtime: Runtime, config: RunnableConfig) -> SkillsStateUpdate | None:

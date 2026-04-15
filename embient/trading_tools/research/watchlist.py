@@ -44,7 +44,7 @@ async def get_user_watchlist() -> str:
 
         lines = [f"User's watchlist ({len(tickers)} tickers):"]
         lines.append(
-            "NOTE: When calling tools (e.g. generate_chart, get_latest_candle) for these "
+            "NOTE: When calling tools (e.g. analyze_chart, get_latest_candle) for these "
             "tickers, use the **symbol** value as the symbol parameter. If an **exchange** "
             "is listed, pass it as the exchange parameter."
         )

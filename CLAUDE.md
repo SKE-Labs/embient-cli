@@ -54,7 +54,7 @@ make coverage      # Coverage report
 
 | Agent | Tools | HITL |
 |-------|-------|------|
-| `technical_analyst` | generate_chart, get_latest_candle, get_indicator, get_candles_around_date | None |
+| `technical_analyst` | analyze_chart, get_latest_candle, get_indicator, get_candles_around_date | None |
 | `fundamental_analyst` | get_financial_news, get_fundamentals, get_economics_calendar | None |
 
 Signal management tools are on the supervisor (not a separate subagent).
@@ -90,7 +90,7 @@ Signal creation/update/close/cancel and spawn creation require user approval via
 | `get_latest_candle` | Basement | Current 5m price |
 | `get_candles_around_date` | Basement | Historical candles |
 | `get_indicator` | Basement | RSI, MACD, EMA, SMA, BB, etc. |
-| `generate_chart` | Basement→Vermeer | Chart image |
+| `analyze_chart` | Basement→Vermeer | Chart image |
 | `web_search` | Park (Brave) | General web search |
 | `get_financial_news` | Park | Trusted source news |
 | `get_fundamentals` | Park (TwelveData) | Stock fundamentals |

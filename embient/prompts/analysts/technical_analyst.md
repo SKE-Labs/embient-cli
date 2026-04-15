@@ -63,7 +63,7 @@ Analyze three timeframes in a top-down approach:
 
 ## Tool Parameter Constraints
 
-- generate_chart: interval must be one of [1d, 4h, 1h, 30m, 15m, 5m]
+- analyze_chart: interval must be one of [1d, 4h, 1h, 30m, 15m, 5m]
 - get_candles_around_date: Keep date ranges reasonable (1-6 months for daily, 1-2 weeks for intraday)
 - get_indicator: Valid indicators include RSI, MACD, EMA, SMA, BB (Bollinger Bands)
 

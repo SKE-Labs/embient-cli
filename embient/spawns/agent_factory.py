@@ -32,13 +32,13 @@ from embient.config import create_model
 from embient.spawns.models import SpawnRecord
 from embient.spawns.prompts import get_spawn_prompt
 from embient.trading_tools import (
+    analyze_chart,
     calculate_position_size,
     cancel_signal,
     close_position,
     create_memory,
     create_trading_insight,
     delete_memory,
-    generate_chart,
     get_candles_around_date,
     get_economics_calendar,
     get_financial_news,
@@ -63,7 +63,7 @@ _MONITORING_TOOLS = [
     get_latest_candle,
     get_indicator,
     get_candles_around_date,
-    generate_chart,
+    analyze_chart,
     # Position management
     get_user_trading_insights,
     get_portfolio_summary,
@@ -84,7 +84,7 @@ _TASK_TOOLS = [
     get_latest_candle,
     get_indicator,
     get_candles_around_date,
-    generate_chart,
+    analyze_chart,
     # Research
     web_search,
     get_financial_news,

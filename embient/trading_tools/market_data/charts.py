@@ -164,7 +164,7 @@ def _render_chart(symbol: str, interval: str, exchange: str, df: pd.DataFrame) -
 
 
 class GenerateChartSchema(BaseModel):
-    """Arguments for generate_chart tool."""
+    """Arguments for analyze_chart tool."""
 
     symbol: str = Field(description="Asset symbol (e.g., 'BTC/USDT'). Must match exchange format.")
     interval: str = Field(description="Candle interval: 1d, 4h, 1h, 30m, 15m, 5m")
@@ -180,7 +180,7 @@ class GenerateChartSchema(BaseModel):
 
 
 @tool(args_schema=GenerateChartSchema)
-async def generate_chart(
+async def analyze_chart(
     symbol: str,
     interval: str,
     exchange: str = "binance",
