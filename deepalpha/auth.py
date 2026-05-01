@@ -55,6 +55,7 @@ class Credentials:
     cli_token: str  # Server-managed CLI session token
     user_id: str | None
     email: str | None
+    pinned_org_id: str | None = None  # Locally selected active org; sent as X-Org-Id
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON storage."""
@@ -62,6 +63,7 @@ class Credentials:
             "cli_token": self.cli_token,
             "user_id": self.user_id,
             "email": self.email,
+            "pinned_org_id": self.pinned_org_id,
         }
 
     @classmethod
@@ -71,6 +73,7 @@ class Credentials:
             cli_token=data.get("cli_token", ""),
             user_id=data.get("user_id"),
             email=data.get("email"),
+            pinned_org_id=data.get("pinned_org_id"),
         )
 
 
@@ -124,6 +127,16 @@ def clear_credentials() -> bool:
         creds_path.unlink()
         return True
     return False
+
+
+def set_pinned_org(org_id: str | None) -> bool:
+    """Update the pinned org on disk. Returns True if credentials were present."""
+    credentials = load_credentials()
+    if not credentials:
+        return False
+    credentials.pinned_org_id = org_id
+    save_credentials(credentials)
+    return True
 
 
 def is_authenticated() -> bool:

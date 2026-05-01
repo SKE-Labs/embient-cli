@@ -34,6 +34,10 @@ _thread_id_context: ContextVar[str | None] = ContextVar("thread_id", default=Non
 # User profile data (account balance, risk settings, etc.)
 _user_profile_context: ContextVar[dict | None] = ContextVar("user_profile", default=None)
 
+# Active organization ID — sent as X-Org-Id on every Basement call. When unset,
+# Basement falls back to cli_sessions.pinned_org_id then profiles.default_org_id.
+_active_org_id_context: ContextVar[str | None] = ContextVar("active_org_id", default=None)
+
 
 # Screenshots captured via HITL (e.g., chart screenshots from request_chart_screenshot)
 _screenshots_context: ContextVar[list | None] = ContextVar("screenshots", default=None)
@@ -80,6 +84,17 @@ def get_user_profile() -> dict | None:
     return _user_profile_context.get()
 
 
+# Active Organization
+def set_active_org_id(org_id: str | None) -> None:
+    """Set the active organization ID for the current session context."""
+    _active_org_id_context.set(org_id)
+
+
+def get_active_org_id() -> str | None:
+    """Get the active organization ID from the current session context."""
+    return _active_org_id_context.get()
+
+
 # Screenshots (HITL-captured chart screenshots)
 def set_screenshots(images: list) -> None:
     """Set the screenshots for the current session context.
@@ -112,6 +127,7 @@ __all__ = [
     "set_jwt_token",  # Backwards compatibility
     "set_thread_id",
     "set_user_profile",
+    "set_active_org_id",
     "set_screenshots",
     "set_spawn_manager",
     # Getters (for tools/middleware)
@@ -119,6 +135,7 @@ __all__ = [
     "get_jwt_token",  # Backwards compatibility
     "get_thread_id",
     "get_user_profile",
+    "get_active_org_id",
     "get_screenshots",
     "get_spawn_manager",
 ]

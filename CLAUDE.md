@@ -77,7 +77,11 @@ Under `deepalpha/trading_tools/` grouped by `market_data/`, `research/`, `signal
 
 ## Interactive slash-commands
 
-`/clear`, `/help`, `/remember`, `/tokens`, `/threads`, `/model`, `/spawns`, `/quit`.
+`/clear`, `/help`, `/remember`, `/tokens`, `/threads`, `/model`, `/spawns`, `/org`, `/quit`.
+
+`/org` without args lists orgs with the active one marked; `/org <id|slug>` switches.
+The active org is sent as `X-Org-Id` on every Basement call and persisted to
+`~/.deepalpha/credentials.json` as `pinned_org_id`.
 
 ## Environment
 

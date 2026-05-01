@@ -24,14 +24,22 @@ from deepalpha._version import __version__
 
 # Now safe to import agent (which imports LangChain modules)
 from deepalpha.agent import create_cli_agent, list_agents, reset_agent
-from deepalpha.auth import get_cli_token, is_authenticated, login_command, logout_command, status_command
+from deepalpha.auth import (
+    get_cli_token,
+    is_authenticated,
+    load_credentials,
+    login_command,
+    logout_command,
+    set_pinned_org,
+    status_command,
+)
 
 # CRITICAL: Import config FIRST to set LANGSMITH_PROJECT before LangChain loads
 from deepalpha.config import (
     console,
     create_model,
 )
-from deepalpha.context import set_auth_token
+from deepalpha.context import set_active_org_id, set_auth_token
 from deepalpha.integrations.sandbox_factory import create_sandbox
 from deepalpha.sessions import (
     delete_thread_command,
@@ -486,6 +494,31 @@ def cli_main() -> None:
                 cli_token = get_cli_token()
                 if cli_token:
                     set_auth_token(cli_token)
+                    # Resolve active organization: prefer the locally pinned org
+                    # (persisted in credentials.json); otherwise fall back to the
+                    # user's server-side default from GET /profiles/me. If the call
+                    # fails, we leave the context unset — Basement will use the
+                    # CLI session's pinned_org or profile default.
+                    creds = load_credentials()
+                    pinned = creds.pinned_org_id if creds else None
+                    if pinned:
+                        set_active_org_id(pinned)
+                    else:
+                        try:
+                            from deepalpha.clients import basement_client
+
+                            profile = asyncio.run(basement_client.get_user_profile(cli_token))
+                            default_org = (
+                                (profile or {}).get("default_org_id")
+                                or (profile or {}).get("defaultOrgId")
+                                or (profile or {}).get("activeOrgId")
+                            )
+                            if default_org:
+                                set_active_org_id(default_org)
+                                # Cache locally so subsequent runs skip the fetch
+                                set_pinned_org(default_org)
+                        except Exception:
+                            pass
 
             # Handle thread resume
             thread_id = None

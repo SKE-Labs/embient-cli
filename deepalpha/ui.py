@@ -170,7 +170,7 @@ def format_tool_display(tool_name: str, tool_args: dict) -> str:
         if parts:
             return f"{tool_name}({', '.join(parts)})"
 
-    elif tool_name == "get_indicator":
+    elif tool_name == "get_indicators":
         # Indicator: show indicator name and symbol
         parts = []
         if "indicator" in tool_args:

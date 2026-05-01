@@ -6,7 +6,7 @@ All tools use the Basement API for data access.
 from deepalpha.trading_tools.market_data import (
     analyze_chart,
     get_candles_around_date,
-    get_indicator,
+    get_indicators,
     get_latest_candle,
 )
 from deepalpha.trading_tools.memory import (
@@ -38,7 +38,7 @@ __all__ = [
     "analyze_chart",
     "get_latest_candle",
     "get_candles_around_date",
-    "get_indicator",
+    "get_indicators",
     # Research
     "web_search",
     "get_financial_news",

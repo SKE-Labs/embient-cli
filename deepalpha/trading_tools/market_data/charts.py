@@ -198,7 +198,7 @@ async def analyze_chart(
     When NOT to Use:
     - Just need current price → use get_latest_candle (much faster)
     - Need exact price at a specific date → use get_candles_around_date
-    - Need indicator values → use get_indicator
+    - Need indicator values → use get_indicators
 
     Parameter constraints:
     - interval: One of [1d, 4h, 1h, 30m, 15m, 5m]
@@ -208,7 +208,7 @@ async def analyze_chart(
     Tool references:
     - Use get_latest_candle for current price only (faster)
     - Use get_candles_around_date for exact historical data points
-    - Use get_indicator for technical indicator values
+    - Use get_indicators for technical indicator values
 
     Returns: Dictionary with {"type": "image_url", "image_url": "file://path.png"}.
     """

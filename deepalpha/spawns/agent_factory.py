@@ -43,7 +43,7 @@ from deepalpha.trading_tools import (
     get_economics_calendar,
     get_financial_news,
     get_fundamentals,
-    get_indicator,
+    get_indicators,
     get_latest_candle,
     get_portfolio_summary,
     get_user_trading_insights,
@@ -61,7 +61,7 @@ logger = logging.getLogger(__name__)
 _MONITORING_TOOLS = [
     # Market data
     get_latest_candle,
-    get_indicator,
+    get_indicators,
     get_candles_around_date,
     analyze_chart,
     # Position management
@@ -82,7 +82,7 @@ _MONITORING_TOOLS = [
 _TASK_TOOLS = [
     # Market data
     get_latest_candle,
-    get_indicator,
+    get_indicators,
     get_candles_around_date,
     analyze_chart,
     # Research

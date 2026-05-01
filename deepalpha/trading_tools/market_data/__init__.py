@@ -5,11 +5,11 @@ from deepalpha.trading_tools.market_data.candles import (
     get_latest_candle,
 )
 from deepalpha.trading_tools.market_data.charts import analyze_chart
-from deepalpha.trading_tools.market_data.indicators import get_indicator
+from deepalpha.trading_tools.market_data.indicators import get_indicators
 
 __all__ = [
     "analyze_chart",
     "get_candles_around_date",
-    "get_indicator",
+    "get_indicators",
     "get_latest_candle",
 ]

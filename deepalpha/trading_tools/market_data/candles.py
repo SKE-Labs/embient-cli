@@ -41,13 +41,13 @@ async def get_latest_candle(symbol: str, exchange: str = "binance") -> str:
     When NOT to Use:
     - Historical price lookup → use get_candles_around_date
     - Visual chart analysis → use analyze_chart
-    - Technical indicator values → use get_indicator
+    - Technical indicator values → use get_indicators
 
     Output: Returns latest 5m OHLCV — Open, High, Low, Close (use for suggestion_price), Volume, Timestamp.
 
     Tool references:
     - Use get_candles_around_date for historical price lookup
-    - Use get_indicator for technical analysis
+    - Use get_indicators for technical analysis
 
     IMPORTANT: Requires authentication. Run 'deepalpha login' first.
     """
@@ -117,7 +117,7 @@ async def get_candles_around_date(
     When NOT to Use:
     - Current price → use get_latest_candle (faster)
     - Visual chart analysis → use analyze_chart
-    - Technical indicators → use get_indicator
+    - Technical indicators → use get_indicators
 
     NEVER:
     - Estimate or guess dates — derive from chart analysis or known events
@@ -131,7 +131,7 @@ async def get_candles_around_date(
 
     Tool references:
     - Use get_latest_candle for current price
-    - Use get_indicator for technical analysis
+    - Use get_indicators for technical analysis
 
     IMPORTANT: Requires authentication. Run 'deepalpha login' first.
     """

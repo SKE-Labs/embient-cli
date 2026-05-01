@@ -535,7 +535,9 @@ class DeepAlphaApp(App):
         elif cmd == "/help":
             await self._mount_message(UserMessage(command))
             await self._mount_message(
-                SystemMessage("Commands: /quit, /clear, /remember, /tokens, /threads, /model, /spawns, /help")
+                SystemMessage(
+                    "Commands: /quit, /clear, /remember, /tokens, /threads, /model, /spawns, /org, /help"
+                )
             )
 
         elif cmd == "/version":
@@ -650,6 +652,9 @@ class DeepAlphaApp(App):
             # Send as a user message to the agent
             await self._handle_user_message(final_prompt)
             return  # _handle_user_message already mounts the message
+        elif cmd == "/org" or cmd.startswith("/org "):
+            await self._mount_message(UserMessage(command))
+            await self._handle_org_command(command)
         elif cmd == "/spawns":
             await self._mount_message(UserMessage(command))
             from deepalpha.context import get_spawn_manager
@@ -672,6 +677,62 @@ class DeepAlphaApp(App):
         else:
             await self._mount_message(UserMessage(command))
             await self._mount_message(SystemMessage(f"Unknown command: {cmd}"))
+
+    async def _handle_org_command(self, command: str) -> None:
+        """Handle /org [<org_id|slug>] — list orgs or switch the active org.
+
+        - `/org` with no args lists the user's orgs with an asterisk on the active one.
+        - `/org <id-or-slug>` switches the active org and persists the choice locally.
+        """
+        from deepalpha.auth import get_cli_token, set_pinned_org
+        from deepalpha.clients import basement_client
+        from deepalpha.context import get_active_org_id, set_active_org_id
+
+        token = get_cli_token()
+        if not token:
+            await self._mount_message(SystemMessage("Not authenticated. Run 'deepalpha login'."))
+            return
+
+        orgs = await basement_client.list_organizations(token)
+        if orgs is None:
+            await self._mount_message(SystemMessage("Failed to load organizations."))
+            return
+        if not orgs:
+            await self._mount_message(SystemMessage("You don't belong to any organizations yet."))
+            return
+
+        arg = command.strip()[len("/org") :].strip()
+        active = get_active_org_id()
+
+        if not arg:
+            lines = ["Organizations:"]
+            for org in orgs:
+                marker = "*" if org.get("id") == active else " "
+                label = org.get("name") or org.get("slug") or org.get("id")
+                slug = org.get("slug")
+                personal = " (personal)" if org.get("is_personal") else ""
+                lines.append(f"  {marker} {label} [{slug}]{personal}")
+            lines.append("Use '/org <id-or-slug>' to switch.")
+            await self._mount_message(SystemMessage("\n".join(lines)))
+            return
+
+        match = next(
+            (o for o in orgs if o.get("id") == arg or o.get("slug") == arg),
+            None,
+        )
+        if match is None:
+            await self._mount_message(SystemMessage(f"No organization matches '{arg}'."))
+            return
+
+        org_id = match["id"]
+        set_active_org_id(org_id)
+        set_pinned_org(org_id)
+        # Best-effort: mirror the pin onto the server-side cli_sessions row so
+        # a request that forgets X-Org-Id still hits the right org. Failure
+        # here is non-fatal; X-Org-Id on every request is the primary signal.
+        await basement_client.pin_cli_session_org(token, org_id)
+        label = match.get("name") or match.get("slug") or org_id
+        await self._mount_message(SystemMessage(f"Active organization set to {label}."))
 
     async def _handle_user_message(self, message: str) -> None:
         """Handle a user message to send to the agent.

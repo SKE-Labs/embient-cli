@@ -10,7 +10,7 @@ from langchain_core.language_models import BaseChatModel
 from deepalpha.trading_tools import (
     analyze_chart,
     get_candles_around_date,
-    get_indicator,
+    get_indicators,
     get_latest_candle,
 )
 from deepalpha.utils.prompt_loader import load_prompt
@@ -18,7 +18,7 @@ from deepalpha.utils.prompt_loader import load_prompt
 _TECHNICAL_TOOLS = [
     analyze_chart,
     get_latest_candle,
-    get_indicator,
+    get_indicators,
     get_candles_around_date,
 ]
 

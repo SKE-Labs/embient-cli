@@ -53,12 +53,28 @@ class BasementClient:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
 
-    def _headers(self, token: str) -> dict:
-        """Build request headers with authentication."""
-        return {
+    def _headers(self, token: str, org_id: str | None = None) -> dict:
+        """Build request headers with authentication.
+
+        If no org_id is passed, falls back to the active org set on the
+        context var (deepalpha.context.set_active_org_id). When present,
+        sent as X-Org-Id so Basement scopes the request to that org instead
+        of the user's server-side default.
+        """
+        headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         }
+        if org_id is None:
+            try:
+                from deepalpha.context import get_active_org_id
+
+                org_id = get_active_org_id()
+            except Exception:
+                org_id = None
+        if org_id:
+            headers["X-Org-Id"] = org_id
+        return headers
 
     # =========================================================================
     # Trading Signals
@@ -410,6 +426,104 @@ class BasementClient:
             return None
 
     # =========================================================================
+    # Organizations
+    # =========================================================================
+
+    async def list_organizations(self, token: str) -> list[dict] | None:
+        """List organizations the authenticated user belongs to.
+
+        Returns a list of {id, name, slug, is_personal, avatar_url, ...} dicts
+        or None on failure.
+        """
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v1/orgs",
+                    # Don't scope the list-orgs call to a specific org.
+                    headers=self._headers(token, org_id=""),
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get("response", [])
+                if response.status_code in (401, 403):
+                    raise AuthenticationError(
+                        "Session expired or invalid. Run 'deepalpha login' to re-authenticate."
+                    )
+                logger.error(f"Failed to list organizations: {response.status_code} - {response.text}")
+                return None
+        except httpx.TimeoutException:
+            logger.error("Timeout while listing organizations")
+            return None
+        except AuthenticationError:
+            raise
+        except Exception as e:
+            logger.error(f"Error listing organizations: {e}")
+            return None
+
+    async def pin_cli_session_org(
+        self, token: str, org_id: str | None
+    ) -> bool:
+        """Mirror the local /org choice onto the server-side cli_sessions row.
+
+        Writes `pinned_org_id` on the CLI session used by this token so a
+        future request that forgets the X-Org-Id header (edge-case) still
+        attributes to the chosen org. Best-effort — returns False on failure
+        but the caller should not treat that as fatal; local state + X-Org-Id
+        is the primary mechanism.
+        """
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.put(
+                    f"{self.base_url}/api/v1/auth/cli-session/pin-org",
+                    json={"org_id": org_id},
+                    # Don't scope this call itself — the endpoint operates on
+                    # the session behind the token, not on any active org.
+                    headers=self._headers(token, org_id=""),
+                )
+                if response.status_code in (200, 201):
+                    return True
+                logger.warning(
+                    "pin_cli_session_org: server returned %d - %s",
+                    response.status_code,
+                    response.text,
+                )
+                return False
+        except Exception as e:
+            logger.warning("pin_cli_session_org failed: %s", e)
+            return False
+
+    async def set_default_organization(self, token: str, org_id: str) -> dict | None:
+        """Set the user's server-side default org (profiles.default_org_id).
+
+        Returns the response dict on success or None on failure.
+        """
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(
+                    f"{self.base_url}/api/v1/orgs/{org_id}/default",
+                    headers=self._headers(token, org_id=org_id),
+                )
+                if response.status_code in (200, 201):
+                    data = response.json()
+                    return data.get("response", {})
+                if response.status_code in (401, 403):
+                    raise AuthenticationError(
+                        "Session expired or invalid. Run 'deepalpha login' to re-authenticate."
+                    )
+                logger.error(
+                    f"Failed to set default organization: {response.status_code} - {response.text}"
+                )
+                return None
+        except httpx.TimeoutException:
+            logger.error("Timeout while setting default organization")
+            return None
+        except AuthenticationError:
+            raise
+        except Exception as e:
+            logger.error(f"Error setting default organization: {e}")
+            return None
+
+    # =========================================================================
     # Favorite Tickers
     # =========================================================================
 
@@ -576,16 +690,17 @@ class BasementClient:
             return candles[0]
         return None
 
-    async def get_indicator(
+    async def get_indicators(
         self,
         token: str,
         symbol: str,
         indicator: str,
         exchange: str = "binance",
         interval: str = "4h",
+        count: int = 1,
         params: dict | None = None,
-    ) -> dict | None:
-        """Get technical indicator value for a symbol.
+    ) -> list[dict]:
+        """Get the last N values for a technical indicator.
 
         Args:
             token: JWT authentication token
@@ -593,31 +708,48 @@ class BasementClient:
             indicator: Indicator name (rsi, macd, ema, bbands, etc.)
             exchange: Exchange name (default: binance)
             interval: Candle interval
+            count: Number of most-recent values to return (default 1)
             params: Indicator-specific parameters (period, etc.)
 
         Returns:
-            Indicator data dictionary or None on failure
+            List of indicator dicts (newest-first). Empty list if not found.
         """
         try:
-            request_params = {
-                "symbol": symbol,
-                "interval": interval,
-                "indicator_type_code": indicator,
-                "exchange": exchange,
-            }
-            if params:
-                request_params.update(params)
-
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(
-                    f"{self.base_url}/api/v1/indicators/latest",
-                    params=request_params,
-                    headers=self._headers(token),
-                )
+                if count == 1:
+                    request_params = {
+                        "symbol": symbol,
+                        "interval": interval,
+                        "indicator_type_code": indicator,
+                        "exchange": exchange,
+                    }
+                    if params:
+                        request_params.update(params)
+                    response = await client.get(
+                        f"{self.base_url}/api/v1/indicators/latest",
+                        params=request_params,
+                        headers=self._headers(token),
+                    )
+                    if response.status_code == 200:
+                        data = response.json().get("response") or {}
+                        return [data] if data else []
+                else:
+                    request_params: dict = {
+                        "indicator_type_code": indicator,
+                        "exchange": exchange,
+                        "limit": count,
+                    }
+                    if params:
+                        request_params.update(params)
+                    response = await client.get(
+                        f"{self.base_url}/api/v1/indicators/{symbol}/{interval}",
+                        params=request_params,
+                        headers=self._headers(token),
+                    )
+                    if response.status_code == 200:
+                        data = response.json().get("response") or []
+                        return data if isinstance(data, list) else []
 
-                if response.status_code == 200:
-                    data = response.json()
-                    return data.get("response", {})
                 if response.status_code in (401, 403):
                     raise AuthenticationError("Session expired or invalid. Run 'deepalpha login' to re-authenticate.")
 

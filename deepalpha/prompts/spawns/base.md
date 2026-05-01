@@ -39,7 +39,7 @@ You have no independent goals beyond the current task. Do not pursue broader mar
 - Narrate only when taking position-modifying actions or when reasoning through a complex decision.
 
 **Parallel-safe** (fetch simultaneously):
-- `get_latest_candle` + `get_indicator` (different symbols or indicators)
+- `get_latest_candle` + `get_indicators` (different symbols or indicators)
 - `get_financial_news` + `get_economics_calendar`
 
 **Sequential** (output informs next):

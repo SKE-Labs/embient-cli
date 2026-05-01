@@ -557,7 +557,7 @@ class ToolCallMessage(Vertical):
         "get_fundamentals": {"ticker", "data_type"},
         "get_latest_candle": {"symbol"},
         "get_candles_around_date": {"symbol", "date"},
-        "get_indicator": {"indicator", "symbol"},
+        "get_indicators": {"indicator", "symbol"},
         "get_economics_calendar": {"from_date", "to_date", "country", "impact", "event"},
         "get_user_trading_insights": {"status", "ticker"},
         "create_trading_insight": {"symbol", "position"},
