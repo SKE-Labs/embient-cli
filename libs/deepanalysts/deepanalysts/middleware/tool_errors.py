@@ -57,7 +57,13 @@ class ToolErrorHandlingMiddleware(AgentMiddleware):
             self._failure_counts.clear()
 
     def _on_failure(self, tool_name: str, error: str, tool_call_id: str) -> ToolMessage:
-        """Track failure and return an appropriate (possibly escalated) error message."""
+        """Track failure and return an appropriate (possibly escalated) error message.
+
+        The returned ToolMessage carries `status="error"` and `name=tool_name`
+        so downstream middleware (and any caller scanning history) can
+        distinguish failed invocations from successful ones without parsing
+        content prefixes.
+        """
         count = self._failure_counts.get(tool_name, 0) + 1
         self._failure_counts[tool_name] = count
 
@@ -70,7 +76,12 @@ class ToolErrorHandlingMiddleware(AgentMiddleware):
         else:
             content = f"Tool error: {error}"
 
-        return ToolMessage(content=content, tool_call_id=tool_call_id)
+        return ToolMessage(
+            content=content,
+            tool_call_id=tool_call_id,
+            name=tool_name,
+            status="error",
+        )
 
     def _blocked_message(self, tool_name: str, tool_call_id: str) -> ToolMessage:
         """Return a message for tools that have already been blocked."""
@@ -83,6 +94,8 @@ class ToolErrorHandlingMiddleware(AgentMiddleware):
                 f"again. Inform the user and proceed with available information."
             ),
             tool_call_id=tool_call_id,
+            name=tool_name,
+            status="error",
         )
 
     def wrap_tool_call(

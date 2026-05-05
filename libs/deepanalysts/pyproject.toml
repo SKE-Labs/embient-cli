@@ -1,6 +1,6 @@
 [project]
 name = "deepanalysts"
-version = "0.2.4"
+version = "0.2.5"
 description = "LangChain/LangGraph middleware for building AI agents with memory, skills, and filesystem support"
 readme = "README.md"
 license = { text = "MIT" }
@@ -52,3 +52,10 @@ include = ["deepanalysts*"]
 
 [tool.setuptools.package-data]
 deepanalysts = ["py.typed"]
+
+[dependency-groups]
+dev = [
+    "anyio>=4.12.1",
+    "pytest>=9.0.2",
+    "pytest-anyio>=0.0.0",
+]
